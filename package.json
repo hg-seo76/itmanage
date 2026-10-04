@@ -1,0 +1,7 @@
+{
+  "name": "itmanage-root",
+  "private": true,
+  "scripts": {
+    "build": "cd school-itam && npm install && npm run build"
+  }
+}
