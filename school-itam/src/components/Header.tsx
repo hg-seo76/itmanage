@@ -114,11 +114,11 @@ export const Header: React.FC<HeaderProps> = ({
         {onOpenTagScannerModal && (
           <button
             onClick={onOpenTagScannerModal}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 transition-all shadow-md shadow-cyan-600/20"
-            title="스마트폰/아이패드 카메라로 물품 태그 라벨을 촬영하여 기기를 추가합니다"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 transition-all shadow-md shadow-cyan-600/20"
+            title="스마트폰/아이패드 카메라로 물품 태그 라벨을 촬영하거나 사진 선택하여 기기를 추가합니다"
           >
             <Camera className="w-4 h-4" />
-            <span>📷 카메라로 기기 추가</span>
+            <span>사진으로 추가</span>
           </button>
         )}
 

@@ -236,16 +236,16 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             <button
               type="button"
               onClick={() => setIsTagScannerOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition-all"
-              title="카메라로 물품 스티커/태그를 촬영하여 자동 추가합니다"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition-all"
+              title="사진으로 물품 스티커/태그를 촬영하거나 선택하여 자동 추가합니다"
             >
               <Camera className="w-4 h-4" />
-              <span>📷 카메라로 추가</span>
+              <span>사진으로 추가</span>
             </button>
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs"
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs"
             >
               닫기
             </button>
@@ -259,8 +259,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               <Camera className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <div className="text-xs font-bold text-blue-200">📷 카메라 촬영으로 자동 등록하기</div>
-              <div className="text-[11px] text-slate-400">카메라로 기기 라벨/RFID 태그를 촬영하면 자산번호·기종명이 자동 입력됩니다.</div>
+              <div className="text-xs font-bold text-blue-200">사진 촬영/선택으로 자동 등록하기</div>
+              <div className="text-[11px] text-slate-400">기기 라벨/RFID 태그 사진을 촬영하면 자산번호·기종명이 자동 입력됩니다.</div>
             </div>
           </div>
           <button
@@ -269,7 +269,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-blue-600/30 transition-all shrink-0"
           >
             <Camera className="w-4 h-4" />
-            <span>카메라 촬영 스캔</span>
+            <span>사진 촬영/선택</span>
           </button>
         </div>
 
