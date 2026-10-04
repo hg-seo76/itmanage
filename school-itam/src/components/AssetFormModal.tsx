@@ -6,15 +6,19 @@ import {
   CheckCircle2, 
   Wifi, 
   MapPin, 
-  UserCheck
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
 import type { Asset, DeviceCategory } from '../types/asset';
 import { BUILDING_STRUCTURE } from '../data/buildingLayout';
+import { TagScannerModal } from './TagScannerModal';
+import type { ParsedTagResult } from '../utils/tagOcrParser';
 
 interface AssetFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   assetToEdit?: Asset | null;
+  initialData?: { location?: string; assignedRole?: string } | null;
   onSaveAsset: (assetData: Partial<Asset>) => void;
   onDeleteAsset?: (assetId: string) => void;
 }
@@ -23,6 +27,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   isOpen,
   onClose,
   assetToEdit,
+  initialData,
   onSaveAsset,
   onDeleteAsset
 }) => {
@@ -33,8 +38,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [category, setCategory] = useState<DeviceCategory>('desktop_pc');
   const [modelName, setModelName] = useState('');
   const [manufacturer, setManufacturer] = useState('');
-  const [ledgerLocation, setLedgerLocation] = useState('');
-  const [actualLocation, setActualLocation] = useState('');
+  const [location, setLocation] = useState('');
   
   // 실별 사용자 풀다운 전용 상태
   const [assignedRole, setAssignedRole] = useState('');
@@ -44,12 +48,24 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [assignedStudentId, setAssignedStudentId] = useState('');
   const [acquisitionYear, setAcquisitionYear] = useState<number>(new Date().getFullYear());
   const [acquisitionMonth, setAcquisitionMonth] = useState<number>(new Date().getMonth() + 1);
-  const IP_PREFIX = '10.41.33.';
-  const [ipLastOctet, setIpLastOctet] = useState('');
+  const [ipAddress, setIpAddress] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
   const [chargingCartNo, setChargingCartNo] = useState('');
   const [cabinetNo, setCabinetNo] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [isTagScannerOpen, setIsTagScannerOpen] = useState(false);
+
+  const handleApplyTagData = (data: ParsedTagResult) => {
+    if (data.assetId) setId(data.assetId);
+    if (data.name) setName(data.name);
+    if (data.category) setCategory(data.category);
+    if (data.manufacturer) setManufacturer(data.manufacturer);
+    if (data.modelName) setModelName(data.modelName);
+    if (data.acquisitionYear) setAcquisitionYear(data.acquisitionYear);
+    if (data.acquisitionMonth) setAcquisitionMonth(data.acquisitionMonth);
+    if (data.location) setLocation(data.location);
+    if (data.remarks) setRemarks(data.remarks);
+  };
 
   // 1. 전체 실(Location) 목록 추출 (1층~3층)
   const roomLocations = useMemo(() => {
@@ -62,9 +78,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     return Array.from(new Set(locs));
   }, []);
 
-  // 2. 현재 선택된 실제 위치(actualLocation)에 해당하는 실별 사용자 목록 동적 계산
+  // 2. 현재 선택된 위치(location)에 해당하는 실별 사용자 목록 동적 계산
   const currentRoomMembers = useMemo(() => {
-    const currentLoc = actualLocation.trim().toLowerCase();
+    const currentLoc = location.trim().toLowerCase();
     const foundRoom = BUILDING_STRUCTURE.flatMap(f => f.rooms).find(r => {
       const rName = r.name.toLowerCase();
       return currentLoc.includes(rName) || rName.includes(currentLoc);
@@ -83,7 +99,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       '과학실', '특수교사 (우리친구반)', '보건교사', '늘봄실장', '늘봄코디', '늘봄교실',
       '영어실', '컴퓨터실', '정보실'
     ];
-  }, [actualLocation]);
+  }, [location]);
 
   useEffect(() => {
     if (assetToEdit) {
@@ -92,8 +108,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       setCategory(assetToEdit.category);
       setModelName(assetToEdit.modelName);
       setManufacturer(assetToEdit.manufacturer);
-      setLedgerLocation(assetToEdit.ledgerLocation);
-      setActualLocation(assetToEdit.actualLocation);
+      setLocation(assetToEdit.actualLocation || assetToEdit.ledgerLocation || '행정실');
       
       setAssignedRole(assetToEdit.assignedRole);
       setCustomRoleInput(assetToEdit.assignedRole);
@@ -105,41 +120,37 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       const acqParts = acqDate.split('-');
       setAcquisitionYear(parseInt(acqParts[0]) || new Date().getFullYear());
       setAcquisitionMonth(parseInt(acqParts[1]) || 1);
-      // IP 마지막 자리 파싱
-      const existingIp = assetToEdit.credentials?.ipAddress || '';
-      const lastOctet = existingIp.startsWith(IP_PREFIX)
-        ? existingIp.slice(IP_PREFIX.length)
-        : existingIp.split('.').pop() || '';
-      setIpLastOctet(lastOctet);
+      // IP 주소 파싱 (10.41.33. 접두사 분리)
+      const existingIp = assetToEdit.credentials?.ipAddress || (assetToEdit as any).ipAddress || '';
+      setIpAddress(existingIp.replace(/^10\.41\.33\./, ''));
       setWifiPassword(assetToEdit.credentials?.wifiPassword || '');
       setChargingCartNo(assetToEdit.chargingCartNo || '');
       setCabinetNo(assetToEdit.cabinetNo || '');
       setRemarks(assetToEdit.remarks || '');
     } else {
-      setId(`SCH-2024-${Math.floor(Math.random() * 899 + 100)}`);
+      setId(`M0000${Math.floor(Math.random() * 89999 + 10000)}`);
       setName('');
       setCategory('desktop_pc');
       setModelName('');
       setManufacturer('LG전자');
-      setLedgerLocation('행정실');
-      setActualLocation('행정실');
-      setAssignedRole('실장');
+      setLocation(initialData?.location || '행정실');
+      setAssignedRole(initialData?.assignedRole || '실장');
       setCustomRoleInput('');
       setIsCustomRole(false);
       setAssignedStudentId('');
       setAcquisitionYear(new Date().getFullYear());
       setAcquisitionMonth(new Date().getMonth() + 1);
-      setIpLastOctet('');
+      setIpAddress('');
       setWifiPassword('EduWiFi#2024!');
       setChargingCartNo('');
       setCabinetNo('');
       setRemarks('');
     }
-  }, [assetToEdit, isOpen]);
+  }, [assetToEdit, initialData, isOpen]);
 
   // 위치 변경 시 사용자 풀다운 첫 번째 옵션으로 자동 추천
   const handleLocationChange = (newLoc: string) => {
-    setActualLocation(newLoc);
+    setLocation(newLoc);
     // 새로 선택된 위치의 첫 번째 사용자 선택
     const foundRoom = BUILDING_STRUCTURE.flatMap(f => f.rooms).find(r => r.name === newLoc);
     if (foundRoom && foundRoom.members.length > 0) {
@@ -154,15 +165,18 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     e.preventDefault();
     const finalRole = isCustomRole ? customRoleInput.trim() : assignedRole.trim();
 
-    if (!name.trim() || !ledgerLocation.trim() || !actualLocation.trim() || !finalRole) {
-      alert('기명, 장부위치, 실제위치, 담당자 직책을 반드시 입력해 주세요.');
+    if (!name.trim() || !location.trim() || !finalRole) {
+      alert('기명, 위치, 담당자 직책을 반드시 입력해 주세요.');
       return;
     }
 
-    const isMismatch = ledgerLocation.trim() !== actualLocation.trim();
+    const trimmedIp = ipAddress.trim();
+    const formattedIp = trimmedIp
+      ? (trimmedIp.includes('.') ? trimmedIp : `10.41.33.${trimmedIp}`)
+      : undefined;
 
     onSaveAsset({
-      id: id || `SCH-${Date.now().toString().slice(-6)}`,
+      id: id || `M0000${Math.floor(Math.random() * 89999 + 10000)}`,
       serialNumber: assetToEdit?.serialNumber || `SN-${Math.floor(Math.random() * 89999 + 10000)}`,
       name: name.trim(),
       category,
@@ -170,9 +184,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       manufacturer: manufacturer.trim() || '기타',
       acquisitionDate: `${acquisitionYear}-${String(acquisitionMonth).padStart(2, '0')}-01`,
       usefulLifeYears: 5,
-      ledgerLocation: ledgerLocation.trim(),
-      actualLocation: actualLocation.trim(),
-      isLocationMismatch: isMismatch,
+      ledgerLocation: location.trim(),
+      actualLocation: location.trim(),
+      isLocationMismatch: false,
       assignedRole: finalRole,
       assignedStudentId: assignedStudentId.trim() || undefined,
       chargingCartNo: chargingCartNo.trim() || undefined,
@@ -180,7 +194,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       status: assetToEdit?.status || 'normal',
       disposalStatus: assetToEdit?.disposalStatus || 'none',
       credentials: {
-        ipAddress: ipLastOctet.trim() ? `${IP_PREFIX}${ipLastOctet.trim()}` : IP_PREFIX + '1',
+        ipAddress: formattedIp,
         wifiPassword: wifiPassword.trim() || undefined,
         loginPassword: assetToEdit?.credentials?.loginPassword || 'school1234!'
       },
@@ -218,12 +232,24 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs"
-          >
-            닫기
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsTagScannerOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition-all"
+              title="물품 태그(RFID 스티커) 사진을 분석하여 양식을 자동 채웁니다"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>📷 태그 사진 AI 스캔</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs"
+            >
+              닫기
+            </button>
+          </div>
         </div>
 
         {/* Form Body */}
@@ -239,7 +265,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 disabled={isEditing}
                 value={id}
                 onChange={(e) => setId(e.target.value)}
-                placeholder="예: SCH-2024-001"
+                placeholder="예: M000005496"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-blue-500 disabled:opacity-60"
               />
             </div>
@@ -344,31 +370,15 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               </div>
             </div>
 
-            {/* 장부위치 (풀다운 메뉴) */}
-            <div>
+            {/* 설치 / 운용 위치 (단일 선택) */}
+            <div className="md:col-span-2">
               <label className="text-xs text-slate-300 font-semibold block mb-1 flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-blue-400" /> 장부상 운용부서 (풀다운 선택)
+                <MapPin className="w-3.5 h-3.5 text-blue-400" /> 설치 및 운용 위치 (풀다운 선택)
               </label>
               <select
-                value={ledgerLocation}
-                onChange={(e) => setLedgerLocation(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-              >
-                {roomLocations.map(loc => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 실제 설치위치 (풀다운 메뉴) */}
-            <div>
-              <label className="text-xs text-slate-300 font-semibold block mb-1 flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-amber-400" /> 실제 설치위치 (풀다운 선택)
-              </label>
-              <select
-                value={actualLocation}
+                value={location}
                 onChange={(e) => handleLocationChange(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-semibold text-amber-300"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-blue-300 font-semibold focus:outline-none focus:border-blue-500"
               >
                 {roomLocations.map(loc => (
                   <option key={loc} value={loc}>{loc}</option>
@@ -376,12 +386,12 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               </select>
             </div>
 
-            {/* ✨ 요청 사항: 실별 사용자 풀다운 (Pulldown Dropdown) 선택 */}
+            {/* ✨ 실별 사용자 풀다운 선택 */}
             <div className="md:col-span-2 p-3.5 rounded-xl bg-slate-950/80 border border-indigo-900/50 space-y-2">
               <label className="text-xs text-indigo-300 font-bold block flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <UserCheck className="w-4 h-4 text-indigo-400" />
-                  [{actualLocation}] 실별 사용자 / 담당 직책 선택 (풀다운)
+                  [{location}] 실별 사용자 / 담당 직책 선택 (풀다운)
                 </span>
                 <span className="text-[10px] text-slate-500 font-normal">
                   Zero-PII 직책 명칭
@@ -401,7 +411,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                     }}
                     className="flex-1 bg-slate-900 border border-indigo-700/60 rounded-xl px-3 py-2.5 text-xs text-indigo-200 font-bold focus:outline-none focus:border-indigo-500"
                   >
-                    <optgroup label={`${actualLocation} 구성원 (추천)`}>
+                    <optgroup label={`${location} 구성원 (추천)`}>
                       {currentRoomMembers.map(roleName => (
                         <option key={roleName} value={roleName}>
                           👤 {roleName}
@@ -432,7 +442,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               )}
 
               <p className="text-[10px] text-slate-400 pt-0.5">
-                * 현재 선택하신 <strong className="text-amber-300">[{actualLocation}]</strong>에 배치된 사용자/담당 직책 목록이 자동 나열됩니다.
+                * 현재 선택하신 <strong className="text-amber-300">[{location}]</strong>에 배치된 사용자/담당 직책 목록이 자동 나열됩니다.
               </p>
             </div>
 
@@ -453,33 +463,25 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               <label className="text-xs text-slate-400 block mb-1 flex items-center gap-1">
                 <Wifi className="w-3 h-3 text-blue-400" /> 네트워크 IP 주소
               </label>
-              <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 focus-within:border-blue-500 transition-colors">
-                {/* 고정 프리픽스 */}
-                <span className="px-3 py-2 text-xs font-mono text-slate-400 bg-slate-800/60 border-r border-slate-700 whitespace-nowrap select-none">
+              <div className="flex items-center rounded-xl overflow-hidden border border-slate-700 bg-slate-950 focus-within:border-blue-500 transition-colors px-3 py-2">
+                <span className="text-xs text-slate-400 font-mono font-bold select-none pr-1">
                   10.41.33.
                 </span>
-                {/* 마지막 자리만 입력 */}
                 <input
-                  type="number"
-                  min={1}
-                  max={254}
-                  value={ipLastOctet}
+                  type="text"
+                  value={ipAddress}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9]/g, '');
-                    if (val === '' || (parseInt(val) >= 1 && parseInt(val) <= 254)) {
-                      setIpLastOctet(val);
+                    let val = e.target.value.trim();
+                    if (val.startsWith('10.41.33.')) {
+                      val = val.replace('10.41.33.', '');
                     }
+                    setIpAddress(val);
                   }}
-                  placeholder="예: 100"
-                  className="flex-1 bg-transparent px-3 py-2 text-xs text-blue-200 font-mono font-bold focus:outline-none"
+                  placeholder="101 (나머지 숫자)"
+                  className="w-full bg-transparent text-xs text-emerald-300 font-mono font-bold focus:outline-none placeholder:text-slate-600"
                 />
-                {/* 전체 IP 미리보기 */}
-                {ipLastOctet && (
-                  <span className="px-3 py-2 text-[10px] font-mono text-slate-500 bg-slate-800/40 border-l border-slate-700 whitespace-nowrap">
-                    → 10.41.33.{ipLastOctet}
-                  </span>
-                )}
               </div>
+              <p className="text-[11px] text-slate-500 mt-1">마지막 자리 숫자만 입력하시면 10.41.33.XXX 로 자동 저장됩니다.</p>
             </div>
 
             {/* 충전함 & 보관함 번호 */}
@@ -552,6 +554,13 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         </form>
 
       </div>
+
+      {/* AI Tag Scanner Modal */}
+      <TagScannerModal
+        isOpen={isTagScannerOpen}
+        onClose={() => setIsTagScannerOpen(false)}
+        onApplyParsedData={handleApplyTagData}
+      />
     </div>
   );
 };

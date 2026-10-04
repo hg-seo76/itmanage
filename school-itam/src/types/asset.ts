@@ -27,7 +27,7 @@ export interface SecurityCredentials {
 }
 
 export interface Asset {
-  id: string;                  // 자산번호 (예: SCH-2024-001)
+  id: string;                  // 자산번호 (예: M000005496)
   serialNumber: string;        // 일련번호 / S/N
   name: string;                // 기명/상세 품명 (예: Galaxy Tab S8 Edu, ThinkPad L15 Gen4)
   category: DeviceCategory;

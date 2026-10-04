@@ -130,10 +130,10 @@ export function convertCsvToAssets(csvText: string): Asset[] {
   const catIdx = findColumnIndex(header, ['카테고리', 'category', '구분', '종류', '기종', '분류']);
   const modelIdx = findColumnIndex(header, ['모델', 'model', '규격', '상세', '사양']);
   const mfrIdx = findColumnIndex(header, ['제조사', 'manufacturer', '제조국', '브랜드', '메이커']);
-  const ledgerIdx = findColumnIndex(header, ['장부위치', 'ledger', '운용부서', '장부', '부서', '소속']);
-  const actualIdx = findColumnIndex(header, ['실제위치', 'actual', '설치위치', '위치', '장소', '설치장소', '사용장소', '설치 장소']);
+  const locIdx = findColumnIndex(header, ['위치', '설치위치', '장소', '장부위치', '실제위치', '운용부서', '소속', '설치장소', '사용장소', 'ledger', 'actual', 'location']);
   const roleIdx = findColumnIndex(header, ['담당자', 'role', '직책', '사용자', '이름', '담당', '성명', '사용자명']);
   const ipIdx = findColumnIndex(header, ['ip', '주소', 'ip주소', 'network', '아이피']);
+  const acqIdx = findColumnIndex(header, ['도입연도', '도입년도', '취득일자', '도입일자', '도입년월', '취득연도', '취득년월', '도입', '년도', '연도', 'acquisition', 'date', 'year']);
 
   const parsedAssets: Asset[] = [];
 
@@ -141,17 +141,33 @@ export function convertCsvToAssets(csvText: string): Asset[] {
     const row = rows[i];
     if (row.length === 0 || !row.some(cell => cell.trim() !== '')) continue;
 
-    const id = (idIdx !== -1 && row[idIdx]) ? row[idIdx] : `SCH-GS-${String(i).padStart(3, '0')}`;
+    const id = (idIdx !== -1 && row[idIdx]) ? row[idIdx] : `M0000${String(54960 + i).padStart(5, '0')}`;
     const name = (nameIdx !== -1 && row[nameIdx]) ? row[nameIdx] : (row[0] || `구글시트 장비 #${i}`);
     const rawCategory = (catIdx !== -1 && row[catIdx]) ? row[catIdx].toLowerCase() : (name.toLowerCase() || 'desktop_pc');
     const modelName = (modelIdx !== -1 && row[modelIdx]) ? row[modelIdx] : (name || '표준 기종');
     const manufacturer = (mfrIdx !== -1 && row[mfrIdx]) ? row[mfrIdx] : '기타';
     
-    const ledgerLocation = (ledgerIdx !== -1 && row[ledgerIdx]) ? row[ledgerIdx] : (actualIdx !== -1 && row[actualIdx] ? row[actualIdx] : '행정실');
-    const actualLocation = (actualIdx !== -1 && row[actualIdx]) ? row[actualIdx] : ledgerLocation;
+    const location = (locIdx !== -1 && row[locIdx]) ? row[locIdx] : '행정실';
+    const ledgerLocation = location;
+    const actualLocation = location;
     
     const rawRole = (roleIdx !== -1 && row[roleIdx]) ? row[roleIdx] : '정보업무 담당교사';
     const ipAddress = (ipIdx !== -1 && row[ipIdx]) ? row[ipIdx] : `10.41.99.${10 + (i % 240)}`;
+
+    let rawAcq = (acqIdx !== -1 && row[acqIdx]) ? row[acqIdx].trim() : '2024-03-01';
+    rawAcq = rawAcq.replace(/년/g, '').replace(/\s+/g, '');
+    let acquisitionDate = '2024-03-01';
+    if (/^\d{4}$/.test(rawAcq)) {
+      acquisitionDate = `${rawAcq}-03-01`;
+    } else if (/^\d{4}[.\-/]\d{1,2}$/.test(rawAcq)) {
+      const parts = rawAcq.split(/[.\-/]/);
+      acquisitionDate = `${parts[0]}-${parts[1].padStart(2, '0')}-01`;
+    } else if (/^\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}$/.test(rawAcq)) {
+      const parts = rawAcq.split(/[.\-/]/);
+      acquisitionDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    } else if (rawAcq) {
+      acquisitionDate = rawAcq;
+    }
 
     const assignedRole = sanitizeRoleFromRealName(rawRole, actualLocation);
 
@@ -181,7 +197,7 @@ export function convertCsvToAssets(csvText: string): Asset[] {
       category,
       modelName,
       manufacturer,
-      acquisitionDate: '2023-01-01',
+      acquisitionDate,
       usefulLifeYears: 5,
       ledgerLocation,
       actualLocation,

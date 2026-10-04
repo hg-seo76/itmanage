@@ -5,24 +5,27 @@ import {
   ShieldAlert, 
   Printer, 
   RotateCcw, 
-  AlertOctagon,
   FileSpreadsheet,
   PlusCircle,
   Table2,
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   privacyMode: boolean;
   onTogglePrivacy: () => void;
-  showMismatchOnly: boolean;
-  onToggleMismatchOnly: () => void;
   onResetData: () => void;
   onPrint: () => void;
   onOpenGoogleSheetsModal: () => void;
   onOpenAddAssetModal: () => void;
   onOpenBulkImportModal: () => void;
+  onOpenAuthModal: () => void;
+  onOpenTagScannerModal?: () => void;
+  isCloudSynced?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,25 +33,28 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   privacyMode,
   onTogglePrivacy,
-  showMismatchOnly,
-  onToggleMismatchOnly,
   onResetData,
   onPrint,
   onOpenGoogleSheetsModal,
   onOpenAddAssetModal,
   onOpenBulkImportModal,
+  onOpenAuthModal,
+  onOpenTagScannerModal,
+  isCloudSynced = false,
 }) => {
+  const { userEmail, isAuthenticated } = useAuth();
+
   return (
     <header className="h-20 bg-slate-900/60 border-b border-slate-800 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 no-print">
       {/* Search Bar */}
-      <div className="relative w-96">
+      <div className="relative w-80">
         <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="자산번호, 기종명, 위치, 직책 역할명 검색..."
-          className="w-full bg-slate-950/70 border border-slate-700/60 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+          className="w-full bg-slate-950/70 border border-slate-700/60 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
         />
         {searchQuery && (
           <button
@@ -63,6 +69,23 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Control Actions */}
       <div className="flex items-center gap-2">
 
+        {/* Account Button */}
+        <button
+          onClick={onOpenAuthModal}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all ${
+            isAuthenticated
+              ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30'
+              : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+          }`}
+          title={isAuthenticated ? `접속 계정: ${userEmail}` : '로그인 정보'}
+        >
+          <UserCheck className="w-4 h-4 text-blue-400" />
+          <span className="max-w-[120px] truncate">{userEmail?.split('@')[0] || '사용자'}</span>
+          {isCloudSynced && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Firestore 실시간 동기화 중" />
+          )}
+        </button>
+
         {/* Add Asset Button */}
         <button
           onClick={onOpenAddAssetModal}
@@ -71,6 +94,18 @@ export const Header: React.FC<HeaderProps> = ({
           <PlusCircle className="w-4 h-4" />
           <span>신규 기기 등록</span>
         </button>
+
+        {/* AI Tag Scan Button */}
+        {onOpenTagScannerModal && (
+          <button
+            onClick={onOpenTagScannerModal}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-cyan-600/30 to-blue-600/30 text-cyan-200 border border-cyan-500/40 hover:from-cyan-600 hover:to-blue-600 hover:text-white transition-all shadow-sm"
+            title="물품 태그(RFID 스티커) 사진 스캔 및 자동 폼 입력"
+          >
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span>태그 사진 AI 스캔</span>
+          </button>
+        )}
 
         {/* Bulk Import Button */}
         <button
@@ -92,18 +127,6 @@ export const Header: React.FC<HeaderProps> = ({
           <span>구글 시트 연동</span>
         </button>
 
-        {/* Mismatch Filter Toggle */}
-        <button
-          onClick={onToggleMismatchOnly}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all ${
-            showMismatchOnly
-              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/10'
-              : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-800'
-          }`}
-        >
-          <AlertOctagon className={`w-4 h-4 ${showMismatchOnly ? 'text-rose-400' : 'text-slate-400'}`} />
-          <span>위치 불일치만 보기</span>
-        </button>
 
         {/* Privacy Mode Toggle */}
         <button
@@ -149,3 +172,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

@@ -2,20 +2,18 @@ import React from 'react';
 import { 
   Server, 
   Tablet, 
-  AlertTriangle, 
+  MapPin, 
   Trash2
 } from 'lucide-react';
 import type { Asset } from '../types/asset';
 
 interface KpiCardsProps {
   assets: Asset[];
-  onFilterMismatch?: () => void;
   onFilterDisposal?: () => void;
 }
 
 export const KpiCards: React.FC<KpiCardsProps> = ({
   assets,
-  onFilterMismatch,
   onFilterDisposal
 }) => {
   const totalCount = assets.length;
@@ -24,9 +22,6 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
   const smartLaptopCount = assets.filter(a => a.category === 'smart_laptop').length;
   const teacherLaptopCount = assets.filter(a => a.category === 'teacher_laptop').length;
   const totalLaptopCount = smartLaptopCount + teacherLaptopCount;
-
-  const mismatchAssets = assets.filter(a => a.isLocationMismatch);
-  const mismatchCount = mismatchAssets.length;
 
   const disposalAssets = assets.filter(a => a.disposalStatus !== 'none');
   const disposalCount = disposalAssets.length;
@@ -79,27 +74,28 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
         </div>
       </div>
 
-      {/* 3. Location Mismatch */}
+      {/* 3. Total Locations Count */}
       <div 
-        onClick={onFilterMismatch}
-        className="glass-panel p-5 rounded-2xl border border-rose-900/40 bg-gradient-to-br from-rose-950/20 to-slate-900 relative overflow-hidden group hover:border-rose-700/60 cursor-pointer transition-all duration-300"
+        className="glass-panel p-5 rounded-2xl border border-emerald-900/40 bg-gradient-to-br from-emerald-950/20 to-slate-900 relative overflow-hidden group hover:border-emerald-700/60 transition-all duration-300"
       >
-        <div className="absolute right-3 -bottom-3 text-rose-950/40 group-hover:text-rose-900/30 transition-colors">
-          <AlertTriangle className="w-24 h-24" />
+        <div className="absolute right-3 -bottom-3 text-emerald-950/40 group-hover:text-emerald-900/30 transition-colors">
+          <MapPin className="w-24 h-24" />
         </div>
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-rose-300 uppercase tracking-wider">장부 위치 불일치</span>
-            <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 animate-pulse">
-              <AlertTriangle className="w-5 h-5" />
+            <span className="text-xs font-semibold text-emerald-300 uppercase tracking-wider">배치 장소 수</span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <MapPin className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-rose-400">{mismatchCount}</span>
-            <span className="text-xs text-rose-300/70 font-medium">건 감지됨</span>
+            <span className="text-3xl font-extrabold text-emerald-400">
+              {Array.from(new Set(assets.map(a => a.actualLocation || a.ledgerLocation))).length}
+            </span>
+            <span className="text-xs text-emerald-300/70 font-medium">개 실/장소</span>
           </div>
-          <p className="text-xs text-rose-400/80 mt-2 flex items-center gap-1 font-medium">
-            <span>! 장부 위치 불일치 경고 배지 적용</span>
+          <p className="text-xs text-emerald-400/80 mt-2 font-medium">
+            교실, 행정실, 특별실 기기 배치 현황
           </p>
         </div>
       </div>

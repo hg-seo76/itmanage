@@ -33,8 +33,7 @@ export const BUILDING_STRUCTURE: FloorConfig[] = [
           { id: 'm_adm_elem', name: '초등계장' },
           { id: 'm_adm_mid', name: '중등계장' },
           { id: 'm_adm_yun', name: '윤주무관' },
-          { id: 'm_adm_drive', name: '운전주무관' },
-          { id: 'm_adm_common', name: '행정실 공용' }
+          { id: 'm_adm_drive', name: '운전주무관' }
         ]
       },
       {
@@ -86,7 +85,7 @@ export const BUILDING_STRUCTURE: FloorConfig[] = [
   {
     floor: 2,
     name: '2층 (Floor 2)',
-    description: '교무실, 일반교실(1~6학년), 늘봄교실, 특별실',
+    description: '교무실, 교실(1~6학년), 늘봄, 특별실',
     rooms: [
       {
         id: 'room_2f_staff',
@@ -102,15 +101,15 @@ export const BUILDING_STRUCTURE: FloorConfig[] = [
       },
       {
         id: 'room_2f_classrooms',
-        name: '교실 (1~6학년)',
+        name: '교실',
         floor: 2,
         members: [
-          { id: 'm_c1', name: '1학년 담임' },
-          { id: 'm_c2', name: '2학년 담임' },
-          { id: 'm_c3', name: '3학년 담임' },
-          { id: 'm_c4', name: '4학년 담임' },
-          { id: 'm_c5', name: '5학년 담임' },
-          { id: 'm_c6', name: '6학년 담임' }
+          { id: 'm_c1', name: '1학년' },
+          { id: 'm_c2', name: '2학년' },
+          { id: 'm_c3', name: '3학년' },
+          { id: 'm_c4', name: '4학년' },
+          { id: 'm_c5', name: '5학년' },
+          { id: 'm_c6', name: '6학년' }
         ]
       },
       {
@@ -138,25 +137,31 @@ export const BUILDING_STRUCTURE: FloorConfig[] = [
   {
     floor: 3,
     name: '3층 (Floor 3)',
-    description: '과학실, 특수학급, 보건실',
+    description: '과학실, 우리친구반, 보건실',
     rooms: [
       {
         id: 'room_3f_science',
         name: '과학실',
         floor: 3,
-        members: [{ id: 'm_sci', name: '과학실 담당교사' }, { id: 'm_sci_lab', name: '과학실' }]
+        members: [
+          { id: 'm_sci_lab', name: '과학실' }
+        ]
       },
       {
         id: 'room_3f_friend',
         name: '우리친구반',
         floor: 3,
-        members: [{ id: 'm_friend', name: '특수교사 (우리친구반)' }]
+        members: [
+          { id: 'm_friend', name: '우리친구반' }
+        ]
       },
       {
         id: 'room_3f_health',
         name: '보건실',
         floor: 3,
-        members: [{ id: 'm_health', name: '보건교사' }]
+        members: [
+          { id: 'm_health', name: '보건실' }
+        ]
       }
     ]
   }

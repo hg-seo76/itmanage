@@ -13,19 +13,31 @@ import { PrinterTonerView } from './components/views/PrinterTonerView';
 import { DisposalKanbanView } from './components/views/DisposalKanbanView';
 import { EduReportView } from './components/views/EduReportView';
 import { BulkImportModal } from './components/BulkImportModal';
+import { AuthModal } from './components/AuthModal';
+import { LoginScreen } from './components/LoginScreen';
+import { TagScannerModal } from './components/TagScannerModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import type { ParsedTagResult } from './utils/tagOcrParser';
+import { 
+  subscribeToFirestoreAssets, 
+  saveAssetToFirestore, 
+  deleteAssetFromFirestore, 
+  batchSaveAssetsToFirestore 
+} from './services/firestoreAssets';
 
 const STORAGE_KEY_ASSETS = 'school_itam_assets_v2';
 const STORAGE_KEY_PRIVACY = 'school_itam_privacy_v2';
 const STORAGE_KEY_SHEET_URL = 'school_itam_sheet_url_v2';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { isAuthenticated, loading, isFirebaseConfigured } = useAuth();
+
   // 1. LocalStorage Assets state initialization
   const [assets, setAssets] = useState<Asset[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_ASSETS);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // 저장된 데이터가 있으면 그대로 사용
         if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.error('Failed to parse saved assets', e);
@@ -41,7 +53,17 @@ export const App: React.FC = () => {
   const [isGoogleSheetsModalOpen, setIsGoogleSheetsModalOpen] = useState<boolean>(false);
   const [isAssetFormModalOpen, setIsAssetFormModalOpen] = useState<boolean>(false);
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isMainTagScannerOpen, setIsMainTagScannerOpen] = useState<boolean>(false);
   const [assetToEdit, setAssetToEdit] = useState<Asset | null>(null);
+  const [assetModalInitialData, setAssetModalInitialData] = useState<{ location?: string; assignedRole?: string } | null>(null);
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+
+  const handleOpenRegisterModalForMember = (location: string, assignedRole: string) => {
+    setAssetToEdit(null);
+    setAssetModalInitialData({ location, assignedRole });
+    setIsAssetFormModalOpen(true);
+  };
 
   // 2. Privacy Mode (Default: true per strict security rules)
   const [privacyMode, setPrivacyMode] = useState<boolean>(() => {
@@ -57,6 +79,29 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showMismatchOnly, setShowMismatchOnly] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+
+  // Firestore Realtime Subscription (If Firebase is configured & user logged in or active)
+  useEffect(() => {
+    if (!isFirebaseConfigured) {
+      setIsCloudSynced(false);
+      return;
+    }
+
+    const unsubscribe = subscribeToFirestoreAssets(
+      (firestoreAssets) => {
+        if (firestoreAssets.length > 0) {
+          setAssets(firestoreAssets);
+          setIsCloudSynced(true);
+        }
+      },
+      (error) => {
+        console.warn('Falling back to local storage due to Firestore error:', error);
+        setIsCloudSynced(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isFirebaseConfigured]);
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -103,7 +148,7 @@ export const App: React.FC = () => {
     });
   }, [assets, searchQuery, showMismatchOnly]);
 
-  // Asset CRUD Handlers
+  // Asset CRUD Handlers with Firestore sync
   const handleOpenAddAssetModal = () => {
     setAssetToEdit(null);
     setIsAssetFormModalOpen(true);
@@ -114,43 +159,61 @@ export const App: React.FC = () => {
     setIsAssetFormModalOpen(true);
   };
 
-  const handleSaveAsset = (assetData: Partial<Asset>) => {
+  const handleSaveAsset = async (assetData: Partial<Asset>) => {
+    let targetAsset: Asset | null = null;
     setAssets(prev => {
       const exists = prev.some(a => a.id === assetData.id);
       if (exists) {
-        // Edit existing asset
-        return prev.map(a => a.id === assetData.id ? { ...a, ...assetData } as Asset : a);
+        return prev.map(a => {
+          if (a.id === assetData.id) {
+            targetAsset = { ...a, ...assetData } as Asset;
+            return targetAsset;
+          }
+          return a;
+        });
       } else {
-        // Add new asset
-        return [assetData as Asset, ...prev];
+        targetAsset = assetData as Asset;
+        return [targetAsset, ...prev];
       }
     });
+
+    if (targetAsset) {
+      await saveAssetToFirestore(targetAsset).catch(err => console.error('Firestore save failed:', err));
+    }
   };
 
-  const handleDeleteAsset = (assetId: string) => {
+  const handleDeleteAsset = async (assetId: string) => {
     setAssets(prev => prev.filter(a => a.id !== assetId));
+    await deleteAssetFromFirestore(assetId).catch(err => console.error('Firestore delete failed:', err));
   };
 
-  const handleUpdateAssetLocation = (assetId: string, newActualLocation: string, newRole: string) => {
+  const handleUpdateAssetLocation = async (assetId: string, newActualLocation: string, newRole: string) => {
+    let updatedAsset: Asset | null = null;
     setAssets(prev => prev.map(asset => {
       if (asset.id === assetId) {
         const isMismatch = asset.ledgerLocation !== newActualLocation;
-        return {
+        updatedAsset = {
           ...asset,
           actualLocation: newActualLocation,
           assignedRole: newRole,
           isLocationMismatch: isMismatch,
           updatedAt: new Date().toISOString().slice(0, 10)
         };
+        return updatedAsset;
       }
       return asset;
     }));
+
+    if (updatedAsset) {
+      await saveAssetToFirestore(updatedAsset).catch(err => console.error('Firestore update failed:', err));
+    }
   };
 
-  const handleUpdateToner = (assetId: string, remainingPercentage: number, stockCount: number) => {
+  const handleUpdateToner = async (assetId: string, remainingPercentage: number, stockCount: number) => {
+    let updatedAsset: Asset | null = null;
     setAssets(prev => prev.map(asset => {
       if (asset.id === assetId && asset.tonerInfo) {
-        return {
+        updatedAsset = {
           ...asset,
           tonerInfo: {
             ...asset.tonerInfo,
@@ -159,24 +222,35 @@ export const App: React.FC = () => {
           },
           updatedAt: new Date().toISOString().slice(0, 10)
         };
+        return updatedAsset;
       }
       return asset;
     }));
+
+    if (updatedAsset) {
+      await saveAssetToFirestore(updatedAsset).catch(err => console.error('Firestore update failed:', err));
+    }
   };
 
-  const handleUpdateDisposalStatus = (assetId: string, status: DisposalStatus, reason?: string) => {
+  const handleUpdateDisposalStatus = async (assetId: string, status: DisposalStatus, reason?: string) => {
+    let updatedAsset: Asset | null = null;
     setAssets(prev => prev.map(asset => {
       if (asset.id === assetId) {
-        return {
+        updatedAsset = {
           ...asset,
           disposalStatus: status,
           status: status !== 'none' ? 'disposal_scheduled' : 'normal',
           disposalReason: reason ?? asset.disposalReason,
           updatedAt: new Date().toISOString().slice(0, 10)
         };
+        return updatedAsset;
       }
       return asset;
     }));
+
+    if (updatedAsset) {
+      await saveAssetToFirestore(updatedAsset).catch(err => console.error('Firestore update failed:', err));
+    }
   };
 
   const handleResetData = () => {
@@ -192,7 +266,8 @@ export const App: React.FC = () => {
     setCurrentTab('building_map');
   };
 
-  const handleBulkImport = (newAssets: Asset[]) => {
+  const handleBulkImport = async (newAssets: Asset[]) => {
+    let allCombined: Asset[] = [];
     setAssets(prev => {
       const existingIds = new Set(prev.map(a => a.id));
       const toAdd = newAssets.filter(a => !existingIds.has(a.id));
@@ -201,13 +276,57 @@ export const App: React.FC = () => {
         const match = toUpdate.find(u => u.id === a.id);
         return match ? { ...a, ...match } : a;
       });
-      return [...toAdd, ...updated];
+      allCombined = [...toAdd, ...updated];
+      return allCombined;
     });
+
+    if (newAssets.length > 0) {
+      await batchSaveAssetsToFirestore(newAssets).catch(err => console.error('Firestore batch save failed:', err));
+    }
   };
 
   const handlePrint = () => {
     window.print();
   };
+
+  const handleApplyMainTagData = (data: ParsedTagResult) => {
+    const draftAsset: Asset = {
+      id: data.assetId || `M0000${Math.floor(10000 + Math.random() * 90000)}`,
+      serialNumber: `SN-${Math.floor(Math.random() * 89999 + 10000)}`,
+      name: data.name,
+      category: data.category,
+      modelName: data.modelName,
+      manufacturer: data.manufacturer,
+      acquisitionDate: `${data.acquisitionYear}-${String(data.acquisitionMonth).padStart(2, '0')}-01`,
+      usefulLifeYears: 5,
+      ledgerLocation: data.location,
+      actualLocation: data.location,
+      isLocationMismatch: false,
+      assignedRole: '실장',
+      status: 'normal',
+      disposalStatus: 'none',
+      credentials: {},
+      remarks: data.remarks,
+      updatedAt: new Date().toISOString().slice(0, 10),
+    };
+    setAssetToEdit(draftAsset);
+    setIsAssetFormModalOpen(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs">시스템 로딩 중...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex text-slate-100 font-sans">
@@ -233,13 +352,14 @@ export const App: React.FC = () => {
           onSearchChange={setSearchQuery}
           privacyMode={privacyMode}
           onTogglePrivacy={() => setPrivacyMode(prev => !prev)}
-          showMismatchOnly={showMismatchOnly}
-          onToggleMismatchOnly={() => setShowMismatchOnly(prev => !prev)}
           onResetData={handleResetData}
           onPrint={handlePrint}
           onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
           onOpenAddAssetModal={handleOpenAddAssetModal}
           onOpenBulkImportModal={() => setIsBulkImportModalOpen(true)}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onOpenTagScannerModal={() => setIsMainTagScannerOpen(true)}
+          isCloudSynced={isCloudSynced}
         />
 
         {/* Content Container */}
@@ -247,10 +367,6 @@ export const App: React.FC = () => {
           {/* Top 4 KPI Cards */}
           <KpiCards
             assets={assets}
-            onFilterMismatch={() => {
-              setCurrentTab('placement');
-              setShowMismatchOnly(true);
-            }}
             onFilterDisposal={() => {
               setCurrentTab('disposal');
             }}
@@ -262,6 +378,8 @@ export const App: React.FC = () => {
               <BuildingMapView
                 assets={filteredAssets}
                 privacyMode={privacyMode}
+                onRegisterAssetForMember={handleOpenRegisterModalForMember}
+                onEditAsset={handleOpenEditAssetModal}
               />
             )}
 
@@ -311,14 +429,21 @@ export const App: React.FC = () => {
         onClose={() => setIsGoogleSheetsModalOpen(false)}
         savedSheetUrl={savedSheetUrl}
         onSaveSheetUrl={setSavedSheetUrl}
-        onUpdateAssets={(newAssets) => setAssets(newAssets)}
+        onUpdateAssets={async (newAssets) => {
+          setAssets(newAssets);
+          await batchSaveAssetsToFirestore(newAssets).catch(err => console.error('Firestore batch save failed:', err));
+        }}
       />
 
       {/* Asset Form Modal (Add / Edit / Delete Asset) */}
       <AssetFormModal
         isOpen={isAssetFormModalOpen}
-        onClose={() => setIsAssetFormModalOpen(false)}
+        onClose={() => {
+          setIsAssetFormModalOpen(false);
+          setAssetModalInitialData(null);
+        }}
         assetToEdit={assetToEdit}
+        initialData={assetModalInitialData}
         onSaveAsset={handleSaveAsset}
         onDeleteAsset={handleDeleteAsset}
       />
@@ -332,7 +457,28 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      {/* Firebase Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* Main AI Tag Scanner Modal */}
+      <TagScannerModal
+        isOpen={isMainTagScannerOpen}
+        onClose={() => setIsMainTagScannerOpen(false)}
+        onApplyParsedData={handleApplyMainTagData}
+      />
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

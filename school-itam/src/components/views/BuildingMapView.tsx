@@ -19,6 +19,12 @@ import {
   Info,
   ChevronRight,
   PackageCheck,
+  UserPlus,
+  PlusCircle,
+  Trash2,
+  RotateCcw,
+  Plus,
+  Edit3,
 } from 'lucide-react';
 import type { Asset, DeviceCategory } from '../../types/asset';
 
@@ -46,189 +52,269 @@ interface FloorConfig {
 interface BuildingMapViewProps {
   assets: Asset[];
   privacyMode: boolean;
+  onRegisterAssetForMember?: (location: string, memberRole: string) => void;
+  onEditAsset?: (asset: Asset) => void;
 }
 
-const BUILDING_CONFIG: FloorConfig[] = [
+const DEFAULT_BUILDING_CONFIG: FloorConfig[] = [
   {
     floor: 1,
-    name: '1층 (행정·교무)',
-    description: '교장실, 교감실, 행정실, 교무실',
+    name: '1층',
+    description: '행정실, 유치원, 교장실, 도서관, 급식실, 창조음악관',
     rooms: [
-      {
-        id: 'room-principal',
-        name: '교장실',
-        floor: 1,
-        members: [{ id: 'm-principal', name: '교장', role: '교장' }],
-        assetKeywords: ['교장실', '교장'],
-      },
-      {
-        id: 'room-vprincipal',
-        name: '교감실',
-        floor: 1,
-        members: [{ id: 'm-vprincipal', name: '교감', role: '교감' }],
-        assetKeywords: ['교감실', '교감'],
-      },
       {
         id: 'room-admin',
         name: '행정실',
         floor: 1,
         members: [
-          { id: 'm-admin1', name: '행정실장', role: '행정실장' },
-          { id: 'm-admin2', name: '행정직원', role: '행정직원' },
+          { id: 'm-adm-1', name: '실장', role: '실장' },
+          { id: 'm-adm-2', name: '초등계장', role: '초등계장' },
+          { id: 'm-adm-3', name: '중등계장', role: '중등계장' },
+          { id: 'm-adm-4', name: '윤주무관', role: '윤주무관' },
+          { id: 'm-adm-5', name: '운전주무관', role: '운전주무관' },
         ],
-        assetKeywords: ['행정실'],
+        assetKeywords: ['행정실', '실장', '초등계장', '중등계장', '윤주무관', '운전주무관'],
       },
       {
-        id: 'room-teachers',
-        name: '교무실',
+        id: 'room-kinder',
+        name: '유치원',
         floor: 1,
         members: [
-          { id: 'm-teacher-office', name: '교무부장', role: '교무부장' },
-          { id: 'm-teacher-office2', name: '연구부장', role: '연구부장' },
+          { id: 'm-kin-1', name: '교사', role: '교사' },
+          { id: 'm-kin-2', name: '교사실', role: '교사실' },
         ],
-        assetKeywords: ['교무실'],
+        assetKeywords: ['유치원', '유치원교사', '유치원교사실'],
+      },
+      {
+        id: 'room-principal',
+        name: '교장실',
+        floor: 1,
+        members: [
+          { id: 'm-principal', name: '교장', role: '교장' },
+        ],
+        assetKeywords: ['교장실', '교장'],
+      },
+      {
+        id: 'room-library',
+        name: '도서관',
+        floor: 1,
+        members: [
+          { id: 'm-lib-1', name: '푸른도서관', role: '푸른도서관' },
+          { id: 'm-lib-2', name: '씨알도서관', role: '씨알도서관' },
+        ],
+        assetKeywords: ['도서관', '푸른도서관', '씨알도서관', '도서실'],
+      },
+      {
+        id: 'room-cafeteria',
+        name: '급식실',
+        floor: 1,
+        members: [
+          { id: 'm-caf-1', name: '영양사', role: '영양사' },
+          { id: 'm-caf-2', name: '조리사', role: '조리사' },
+          { id: 'm-caf-3', name: '휴게실', role: '휴게실' },
+        ],
+        assetKeywords: ['급식실', '영양사', '조리사', '휴게실'],
+      },
+      {
+        id: 'room-music',
+        name: '창조음악관',
+        floor: 1,
+        members: [
+          { id: 'm-mus-1', name: '음악관', role: '음악관' },
+        ],
+        assetKeywords: ['창조음악관', '음악관', '음악실'],
       },
     ],
   },
   {
     floor: 2,
-    name: '2층 (1·2학년 교실)',
-    description: '1학년 1~3반, 2학년 1~3반, 과학실',
+    name: '2층',
+    description: '교무실, 교실(1~6학년), 늘봄, 특별실',
     rooms: [
       {
-        id: 'room-1-1',
-        name: '1학년 1반',
+        id: 'room-staff',
+        name: '교무실',
         floor: 2,
-        members: [{ id: 'm-1-1', name: '1학년 1반 담임', role: '1학년 1반 담임' }],
-        assetKeywords: ['1학년 1반', '1-1반'],
+        members: [
+          { id: 'm-stf-1', name: '교감', role: '교감' },
+          { id: 'm-stf-2', name: '교무', role: '교무' },
+          { id: 'm-stf-3', name: '행정사', role: '행정사' },
+          { id: 'm-stf-4', name: '영어', role: '영어' },
+          { id: 'm-stf-5', name: '공용', role: '공용' },
+        ],
+        assetKeywords: ['교무실', '교감', '교무', '행정사', '항정사'],
       },
       {
-        id: 'room-1-2',
-        name: '1학년 2반',
+        id: 'room-classrooms',
+        name: '교실',
         floor: 2,
-        members: [{ id: 'm-1-2', name: '1학년 2반 담임', role: '1학년 2반 담임' }],
-        assetKeywords: ['1학년 2반', '1-2반'],
+        members: [
+          { id: 'm-cls-1', name: '1학년', role: '1학년' },
+          { id: 'm-cls-2', name: '2학년', role: '2학년' },
+          { id: 'm-cls-3', name: '3학년', role: '3학년' },
+          { id: 'm-cls-4', name: '4학년', role: '4학년' },
+          { id: 'm-cls-5', name: '5학년', role: '5학년' },
+          { id: 'm-cls-6', name: '6학년', role: '6학년' },
+        ],
+        assetKeywords: ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년', '교실'],
       },
       {
-        id: 'room-1-3',
-        name: '1학년 3반',
+        id: 'room-neulbom',
+        name: '늘봄',
         floor: 2,
-        members: [{ id: 'm-1-3', name: '1학년 3반 담임', role: '1학년 3반 담임' }],
-        assetKeywords: ['1학년 3반', '1-3반'],
+        members: [
+          { id: 'm-neul-1', name: '늘봄실장', role: '늘봄실장' },
+          { id: 'm-neul-2', name: '늘봄코디', role: '늘봄코디' },
+          { id: 'm-neul-3', name: '늘봄교실', role: '늘봄교실' },
+        ],
+        assetKeywords: ['늘봄', '늘봄실장', '늘봄코디', '늘봄교실'],
       },
       {
-        id: 'room-2-1',
-        name: '2학년 1반',
+        id: 'room-special',
+        name: '특별실',
         floor: 2,
-        members: [{ id: 'm-2-1', name: '2학년 1반 담임', role: '2학년 1반 담임' }],
-        assetKeywords: ['2학년 1반', '2-1반'],
-      },
-      {
-        id: 'room-2-2',
-        name: '2학년 2반',
-        floor: 2,
-        members: [{ id: 'm-2-2', name: '2학년 2반 담임', role: '2학년 2반 담임' }],
-        assetKeywords: ['2학년 2반', '2-2반'],
-      },
-      {
-        id: 'room-2-3',
-        name: '2학년 3반',
-        floor: 2,
-        members: [{ id: 'm-2-3', name: '2학년 3반 담임', role: '2학년 3반 담임' }],
-        assetKeywords: ['2학년 3반', '2-3반'],
-      },
-      {
-        id: 'room-science',
-        name: '과학실',
-        floor: 2,
-        members: [{ id: 'm-science', name: '과학부장', role: '과학부장' }],
-        assetKeywords: ['과학실'],
+        members: [
+          { id: 'm-spc-1', name: '영어실', role: '영어실' },
+          { id: 'm-spc-2', name: '컴퓨터실', role: '컴퓨터실' },
+          { id: 'm-spc-3', name: '정보실', role: '정보실' },
+        ],
+        assetKeywords: ['특별실', '영어실', '컴퓨터실', '정보실'],
       },
     ],
   },
   {
     floor: 3,
-    name: '3층 (3·4·5·6학년 교실·특별실)',
-    description: '3~6학년 교실, 컴퓨터실, 도서관',
+    name: '3층',
+    description: '과학실, 우리친구반, 보건실',
     rooms: [
       {
-        id: 'room-3-1',
-        name: '3학년 1반',
+        id: 'room-science',
+        name: '과학실',
         floor: 3,
-        members: [{ id: 'm-3-1', name: '3학년 1반 담임', role: '3학년 1반 담임' }],
-        assetKeywords: ['3학년 1반', '3-1반'],
+        members: [
+          { id: 'm-sci-1', name: '과학실', role: '과학실' },
+        ],
+        assetKeywords: ['과학실'],
       },
       {
-        id: 'room-3-2',
-        name: '3학년 2반',
+        id: 'room-friend',
+        name: '우리친구반',
         floor: 3,
-        members: [{ id: 'm-3-2', name: '3학년 2반 담임', role: '3학년 2반 담임' }],
-        assetKeywords: ['3학년 2반', '3-2반'],
+        members: [
+          { id: 'm-frd-1', name: '우리친구반', role: '우리친구반' },
+        ],
+        assetKeywords: ['우리친구반', '특수학급'],
       },
       {
-        id: 'room-4-1',
-        name: '4학년 1반',
+        id: 'room-health',
+        name: '보건실',
         floor: 3,
-        members: [{ id: 'm-4-1', name: '4학년 1반 담임', role: '4학년 1반 담임' }],
-        assetKeywords: ['4학년 1반', '4-1반'],
-      },
-      {
-        id: 'room-4-2',
-        name: '4학년 2반',
-        floor: 3,
-        members: [{ id: 'm-4-2', name: '4학년 2반 담임', role: '4학년 2반 담임' }],
-        assetKeywords: ['4학년 2반', '4-2반'],
-      },
-      {
-        id: 'room-5-1',
-        name: '5학년 1반',
-        floor: 3,
-        members: [{ id: 'm-5-1', name: '5학년 1반 담임', role: '5학년 1반 담임' }],
-        assetKeywords: ['5학년 1반', '5-1반'],
-      },
-      {
-        id: 'room-5-2',
-        name: '5학년 2반',
-        floor: 3,
-        members: [{ id: 'm-5-2', name: '5학년 2반 담임', role: '5학년 2반 담임' }],
-        assetKeywords: ['5학년 2반', '5-2반'],
-      },
-      {
-        id: 'room-6-1',
-        name: '6학년 1반',
-        floor: 3,
-        members: [{ id: 'm-6-1', name: '6학년 1반 담임', role: '6학년 1반 담임' }],
-        assetKeywords: ['6학년 1반', '6-1반'],
-      },
-      {
-        id: 'room-6-2',
-        name: '6학년 2반',
-        floor: 3,
-        members: [{ id: 'm-6-2', name: '6학년 2반 담임', role: '6학년 2반 담임' }],
-        assetKeywords: ['6학년 2반', '6-2반'],
-      },
-      {
-        id: 'room-computer',
-        name: '컴퓨터실',
-        floor: 3,
-        members: [{ id: 'm-it', name: '정보담당교사', role: '정보담당교사' }],
-        assetKeywords: ['컴퓨터실', '정보실'],
-      },
-      {
-        id: 'room-library',
-        name: '도서관',
-        floor: 3,
-        members: [{ id: 'm-library', name: '사서교사', role: '사서교사' }],
-        assetKeywords: ['도서관', '도서실'],
+        members: [
+          { id: 'm-hlt-1', name: '보건실', role: '보건실' },
+        ],
+        assetKeywords: ['보건실'],
       },
     ],
   },
 ];
 
-export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
+const LAYOUT_STORAGE_KEY = 'school_itam_custom_building_layout';
+
+export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember, onEditAsset }: BuildingMapViewProps) {
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | 'all'>('all');
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+
+  // 층별/실별 구성원 커스텀 관리 상태
+  const [buildingConfig, setBuildingConfig] = useState<FloorConfig[]>(() => {
+    try {
+      const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to parse custom layout:', e);
+    }
+    return DEFAULT_BUILDING_CONFIG;
+  });
+
+  // 구성원 추가 모달 상태
+  const [addMemberModal, setAddMemberModal] = useState<{
+    isOpen: boolean;
+    floor: number;
+    roomId: string;
+    roomName: string;
+  }>({ isOpen: false, floor: 1, roomId: '', roomName: '' });
+
+  const [newMemberNameInput, setNewMemberNameInput] = useState('');
+
+  // 층/구성원 설정 저장
+  const saveLayout = (newConfig: FloorConfig[]) => {
+    setBuildingConfig(newConfig);
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(newConfig));
+  };
+
+  // 초기 상태로 리셋
+  const handleResetLayout = () => {
+    if (window.confirm('모든 실의 구성원 설정을 초기 기본 배치로 재설정하시겠습니까?')) {
+      saveLayout(DEFAULT_BUILDING_CONFIG);
+    }
+  };
+
+  // 새 구성원 추가 제출
+  const handleAddMemberSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newMemberNameInput.trim();
+    if (!name) return;
+
+    const newConfig = buildingConfig.map(f => {
+      if (f.floor !== addMemberModal.floor) return f;
+      return {
+        ...f,
+        rooms: f.rooms.map(r => {
+          if (r.id !== addMemberModal.roomId) return r;
+          const newMember: MemberConfig = {
+            id: `m_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            name,
+            role: name
+          };
+          const updatedKeywords = r.assetKeywords.includes(name)
+            ? r.assetKeywords
+            : [...r.assetKeywords, name];
+          return {
+            ...r,
+            members: [...r.members, newMember],
+            assetKeywords: updatedKeywords
+          };
+        })
+      };
+    });
+
+    saveLayout(newConfig);
+    setNewMemberNameInput('');
+    setAddMemberModal({ isOpen: false, floor: 1, roomId: '', roomName: '' });
+  };
+
+  // 구성원 삭제
+  const handleDeleteMember = (floorNum: number, roomId: string, memberId: string, memberName: string) => {
+    if (!window.confirm(`'${memberName}' 구성원을 이 실에서 삭제하시겠습니까?`)) return;
+
+    const newConfig = buildingConfig.map(f => {
+      if (f.floor !== floorNum) return f;
+      return {
+        ...f,
+        rooms: f.rooms.map(r => {
+          if (r.id !== roomId) return r;
+          return {
+            ...r,
+            members: r.members.filter(m => m.id !== memberId)
+          };
+        })
+      };
+    });
+
+    saveLayout(newConfig);
+  };
 
 
   const filteredAssets = useMemo(() => {
@@ -289,8 +375,8 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
   };
 
   const visibleFloors = selectedFloor === 'all'
-    ? BUILDING_CONFIG
-    : BUILDING_CONFIG.filter(f => f.floor === selectedFloor);
+    ? buildingConfig
+    : buildingConfig.filter(f => f.floor === selectedFloor);
 
   return (
     <div className="space-y-6">
@@ -305,37 +391,48 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
               정보화기기 건물 배치도 (1층 → 2층 → 3층)
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              교육용 노트북과 교원용 노트북이 명확히 구분된 실별/구성원별 배치 현황
+              실별 구성원을 자유롭게 추가/삭제하고, 담당자별 맞춤 기기를 즉시 등록 관리하세요.
             </p>
           </div>
 
-          {/* Floor Tabs */}
-          <div className="flex items-center gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
+          {/* Floor Tabs & Reset Button */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setSelectedFloor('all')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                selectedFloor === 'all'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              onClick={handleResetLayout}
+              className="px-3 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+              title="초기 학교 건물 배치로 리셋"
             >
-              전체 층
+              <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+              초기화
             </button>
-            {[1, 2, 3].map(f => (
+
+            <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800">
               <button
-                key={f}
-                onClick={() => setSelectedFloor(f)}
-                className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                  selectedFloor === f
-                    ? f === 1 ? 'bg-amber-600 text-white shadow-md'
-                    : f === 2 ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-purple-600 text-white shadow-md'
+                onClick={() => setSelectedFloor('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  selectedFloor === 'all'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {f}층
+                전체 층
               </button>
-            ))}
+              {[1, 2, 3].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setSelectedFloor(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    selectedFloor === f
+                      ? f === 1 ? 'bg-amber-600 text-white shadow-md'
+                      : f === 2 ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-purple-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {f}층
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -517,6 +614,24 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
                             </h4>
                           </div>
                           <div className="flex items-center gap-1.5">
+                            {/* 구성원 추가 버튼 */}
+                            <button
+                              onClick={() => {
+                                setNewMemberNameInput('');
+                                setAddMemberModal({
+                                  isOpen: true,
+                                  floor: floor.floor,
+                                  roomId: room.id,
+                                  roomName: room.name
+                                });
+                              }}
+                              className="px-2 py-0.5 rounded bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[10px] font-bold flex items-center gap-1 transition-all"
+                              title={`${room.name}에 구성원 추가`}
+                            >
+                              <UserPlus className="w-3 h-3" />
+                              +구성원
+                            </button>
+
                             {roomMismatchCount > 0 && (
                               <span className="inline-flex items-center gap-1 text-rose-400 text-[10px] font-bold">
                                 <AlertTriangle className="w-3 h-3" />
@@ -534,14 +649,38 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
                           {groups.map(({ member, assets: memAssets }) => (
                             <div
                               key={member.id}
-                              className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/60 space-y-1.5"
+                              className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/60 space-y-1.5 group/member"
                             >
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-semibold text-indigo-300 flex items-center gap-1">
                                   <UserCheck className="w-3 h-3 text-indigo-400" />
                                   {privacyMode ? member.role : member.name}
                                 </span>
-                                <span className="text-[10px] text-slate-500">{memAssets.length}대</span>
+
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-slate-500 mr-1">{memAssets.length}대</span>
+                                  
+                                  {/* 기기 등록 버튼 (구성원별 직접 기기 등록) */}
+                                  {onRegisterAssetForMember && (
+                                    <button
+                                      onClick={() => onRegisterAssetForMember(room.name, member.name)}
+                                      className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[10px] font-bold flex items-center gap-1 transition-all"
+                                      title={`${room.name} ${member.name} 님에게 새 기기 등록`}
+                                    >
+                                      <PlusCircle className="w-3 h-3" />
+                                      기기 등록
+                                    </button>
+                                  )}
+
+                                  {/* 구성원 삭제 버튼 */}
+                                  <button
+                                    onClick={() => handleDeleteMember(floor.floor, room.id, member.id, member.name)}
+                                    className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/20 transition-all opacity-60 group-hover/member:opacity-100"
+                                    title="구성원 삭제"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
                               </div>
 
                               <div className="space-y-1">
@@ -552,10 +691,13 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
                                     className="p-1.5 rounded-lg bg-slate-950/70 border border-slate-800/60 flex items-center justify-between text-[11px] cursor-pointer hover:bg-blue-950/40 hover:border-blue-700/50 transition-all group/asset"
                                     title="클릭하여 기기 상세 정보 보기"
                                   >
-                                    <div className="flex items-center gap-1.5 truncate">
+                                    <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 mr-1">
                                       {getDeviceIcon(asset.category)}
-                                      <span className="font-mono text-blue-300 font-bold">{asset.id}</span>
-                                      <span className="truncate text-slate-300 group-hover/asset:text-slate-100">{asset.name}</span>
+                                      <span className="font-mono text-blue-300 font-bold shrink-0">{asset.id}</span>
+                                      <span className="truncate text-slate-300 group-hover/asset:text-slate-100 font-medium">{asset.name}</span>
+                                      <span className="font-mono text-emerald-400 text-[10px] bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-800/40 shrink-0">
+                                        {asset.credentials?.ipAddress || (asset as any).ipAddress || 'IP미지정'}
+                                      </span>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
@@ -609,54 +751,41 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
           기기 상세 정보 드로어 (오른쪽 슬라이드인)
       ────────────────────────────────────────── */}
       {selectedAsset && (
-        <>
-          {/* 배경 오버레이 */}
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 no-print"
-            onClick={() => setSelectedAsset(null)}
-          />
-          {/* 드로어 패널 */}
-          <div className="fixed right-0 top-0 h-full w-full max-w-sm bg-slate-900 border-l border-slate-700 shadow-2xl z-50 flex flex-col no-print animate-slide-in-right">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
 
-            {/* 드로어 헤더 */}
+            {/* 모달 헤더 */}
             <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/95 backdrop-blur">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30">
                   {getDeviceIcon(selectedAsset.category)}
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-400 font-mono">{selectedAsset.id}</p>
-                  <h3 className="text-sm font-bold text-slate-100 leading-tight">{selectedAsset.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-blue-400">{selectedAsset.id}</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      selectedAsset.status === 'normal'             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                      selectedAsset.status === 'repair'             ? 'bg-amber-500/20  text-amber-300  border border-amber-500/30'  :
+                      selectedAsset.status === 'storage'            ? 'bg-slate-700     text-slate-300  border border-slate-600'      :
+                                                                      'bg-rose-500/20   text-rose-300   border border-rose-500/30'
+                    }`}>
+                      {selectedAsset.status === 'normal' ? '정상' :
+                       selectedAsset.status === 'repair' ? '수리중' :
+                       selectedAsset.status === 'storage' ? '보관중' : '불용예정'}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-100 leading-tight mt-0.5">{selectedAsset.name}</h3>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedAsset(null)}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 transition-all"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* 상태 배지 바 */}
-            <div className="flex items-center gap-2 px-5 py-3 bg-slate-950/60 border-b border-slate-800">
-              <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${
-                selectedAsset.status === 'normal'             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                selectedAsset.status === 'repair'             ? 'bg-amber-500/20  text-amber-300  border border-amber-500/30'  :
-                selectedAsset.status === 'storage'            ? 'bg-slate-700     text-slate-300  border border-slate-600'      :
-                                                                'bg-rose-500/20   text-rose-300   border border-rose-500/30'
-              }`}>
-                {selectedAsset.status === 'normal' ? '✅ 정상 사용중' :
-                 selectedAsset.status === 'repair' ? '🔧 수리중' :
-                 selectedAsset.status === 'storage' ? '📦 보관중' : '⚠️ 불용 예정'}
-              </span>
-              {selectedAsset.isLocationMismatch && (
-                <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> 위치 불일치
-                </span>
-              )}
-            </div>
-
-            {/* 드로어 바디 (스크롤) */}
+            {/* 모달 바디 (스크롤) */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
               {/* 기기 기본 정보 */}
@@ -696,9 +825,7 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
                   {[
                     { label: '도입 날짜', value: selectedAsset.acquisitionDate ? selectedAsset.acquisitionDate.slice(0, 7).replace('-', '년 ') + '월' : '-' },
                     { label: '내용연수', value: selectedAsset.usefulLifeYears ? `${selectedAsset.usefulLifeYears}년` : '-' },
-                    { label: '장부 위치', value: selectedAsset.ledgerLocation || '-' },
-                    { label: '실제 위치', value: selectedAsset.actualLocation || '-',
-                      highlight: selectedAsset.isLocationMismatch },
+                    { label: '설치 위치', value: selectedAsset.actualLocation || selectedAsset.ledgerLocation || '-' },
                     { label: '담당 직책', value: selectedAsset.assignedRole || '-' },
                   ].map(row => (
                     <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
@@ -720,9 +847,7 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
                   <div className="flex items-center justify-between px-3.5 py-2.5">
                     <span className="text-[11px] text-slate-400">IP 주소</span>
                     <span className="text-[12px] font-mono font-semibold text-emerald-300">
-                      {privacyMode
-                        ? (selectedAsset.credentials?.ipAddress?.replace(/\.\d+$/, '.***') ?? '-')
-                        : (selectedAsset.credentials?.ipAddress ?? '-')}
+                      {selectedAsset.credentials?.ipAddress ?? '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between px-3.5 py-2.5">
@@ -824,14 +949,91 @@ export function BuildingMapView({ assets, privacyMode }: BuildingMapViewProps) {
 
             </div>
 
-            {/* 드로어 푸터 */}
-            <div className="p-4 border-t border-slate-800 bg-slate-900/80">
-              <p className="text-[10px] text-slate-500 text-center">
-                마지막 업데이트: {selectedAsset.updatedAt || '-'}
-              </p>
+            {/* 모달 푸터 (수정 버튼 & 닫기 버튼) */}
+            <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between gap-3">
+              <button
+                onClick={() => setSelectedAsset(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all"
+              >
+                닫기
+              </button>
+
+              {onEditAsset && (
+                <button
+                  onClick={() => {
+                    const target = selectedAsset;
+                    setSelectedAsset(null);
+                    onEditAsset(target);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  기기 정보 수정하기
+                </button>
+              )}
             </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* ──────────────────────────────────────────
+          구성원 추가 모달
+      ────────────────────────────────────────── */}
+      {addMemberModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-2 text-indigo-400 font-bold">
+                <UserPlus className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-100">
+                  [{addMemberModal.roomName}] 새 구성원 추가
+                </h3>
+              </div>
+              <button
+                onClick={() => setAddMemberModal({ isOpen: false, floor: 1, roomId: '', roomName: '' })}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddMemberSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  구성원 명칭 (역할 / 담당 직책)
+                </label>
+                <input
+                  type="text"
+                  value={newMemberNameInput}
+                  onChange={(e) => setNewMemberNameInput(e.target.value)}
+                  placeholder="예: 초등 보조교사, 늘봄강사, 윤주무관B, 실습생 등"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"
+                  autoFocus
+                />
+                <p className="text-[11px] text-slate-500 mt-2">
+                  * 구성원을 추가하면 해당 실에 새로 배치된 담당자의 기기를 즉시 등록하고 관리할 수 있습니다.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddMemberModal({ isOpen: false, floor: 1, roomId: '', roomName: '' })}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  구성원 추가하기
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

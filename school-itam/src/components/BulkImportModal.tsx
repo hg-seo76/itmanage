@@ -240,7 +240,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ onClose, onImp
                       <table className="w-full text-xs">
                         <thead className="bg-slate-950/80">
                           <tr>
-                            {['자산번호', '기기명', '기기종류', '장부위치', '사용자직책', '상태'].map(h => (
+                            {['자산번호', '기기명', '기기종류', '위치', '사용자직책', '상태'].map(h => (
                               <th key={h} className="px-3 py-2 text-left text-slate-400 font-semibold whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
@@ -251,7 +251,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ onClose, onImp
                               <td className="px-3 py-2 font-mono text-blue-300 font-bold whitespace-nowrap">{asset.id}</td>
                               <td className="px-3 py-2 text-slate-200 whitespace-nowrap">{asset.name}</td>
                               <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{asset.category}</td>
-                              <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{asset.ledgerLocation}</td>
+                              <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{asset.actualLocation || asset.ledgerLocation}</td>
                               <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{asset.assignedRole}</td>
                               <td className="px-3 py-2">
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${

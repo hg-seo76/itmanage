@@ -106,8 +106,7 @@ export const RoomPlacementView: React.FC<RoomPlacementViewProps> = ({
               <tr>
                 <th className="p-4">자산번호 / S/N</th>
                 <th className="p-4">기종명 / 카테고리</th>
-                <th className="p-4">장부상 위치 (Ledger)</th>
-                <th className="p-4">실제 설치위치 (Actual)</th>
+                <th className="p-4">배치 위치</th>
                 <th className="p-4">담당자 (Zero-PII Role)</th>
                 <th className="p-4">네트워크 IP</th>
                 <th className="p-4 text-center">인수인계 수정</th>
@@ -117,9 +116,7 @@ export const RoomPlacementView: React.FC<RoomPlacementViewProps> = ({
               {filteredAssets.map(asset => (
                 <tr 
                   key={asset.id} 
-                  className={`hover:bg-slate-800/40 transition-colors ${
-                    asset.isLocationMismatch ? 'bg-rose-950/15' : ''
-                  }`}
+                  className="hover:bg-slate-800/40 transition-colors"
                 >
                   {/* Asset ID & SN */}
                   <td className="p-4">
@@ -135,24 +132,14 @@ export const RoomPlacementView: React.FC<RoomPlacementViewProps> = ({
                     </span>
                   </td>
 
-                  {/* Ledger Location */}
-                  <td className="p-4 text-slate-300 font-medium">
-                    {asset.ledgerLocation}
-                  </td>
-
-                  {/* Actual Location */}
+                  {/* Location */}
                   <td className="p-4">
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <span className={`font-medium ${asset.isLocationMismatch ? 'text-rose-300 font-bold' : 'text-slate-200'}`}>
-                        {asset.actualLocation}
+                      <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="font-medium text-slate-200">
+                        {asset.actualLocation || asset.ledgerLocation}
                       </span>
                     </div>
-                    {asset.isLocationMismatch && (
-                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[10px] font-bold rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                        <AlertTriangle className="w-3 h-3" /> ! 장부위치 불일치
-                      </span>
-                    )}
                   </td>
 
                   {/* Assigned Role (Zero-PII) */}

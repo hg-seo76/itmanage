@@ -9,7 +9,7 @@ import type { Asset, DeviceCategory, DisposalStatus } from '../types/asset';
 // 컬럼 헤더 (한글 라벨 → 내부 필드명)
 // ─────────────────────────────────────────────
 export const CSV_COLUMNS: { label: string; field: keyof Asset | string; example: string; required: boolean }[] = [
-  { label: '자산번호',        field: 'id',                example: 'SCH-2024-001',         required: true  },
+  { label: '자산번호',        field: 'id',                example: 'M000005496',           required: true  },
   { label: '기기명',          field: 'name',              example: 'Galaxy Tab S8 Edu',    required: true  },
   { label: '기기종류',        field: 'category',          example: 'smart_tablet',         required: true  },
   { label: '모델명',          field: 'modelName',         example: 'SM-X700',              required: true  },
@@ -17,8 +17,7 @@ export const CSV_COLUMNS: { label: string; field: keyof Asset | string; example:
   { label: '일련번호',        field: 'serialNumber',      example: 'R52T301ABCD',          required: true  },
   { label: '취득일자',        field: 'acquisitionDate',   example: '2024-03-01',           required: true  },
   { label: '내용연수(년)',    field: 'usefulLifeYears',   example: '5',                    required: false },
-  { label: '장부위치',        field: 'ledgerLocation',    example: '3학년 1반',             required: true  },
-  { label: '실제위치',        field: 'actualLocation',    example: '3학년 1반',             required: true  },
+  { label: '위치',            field: 'location',          example: '3학년 1반',             required: true  },
   { label: '사용자직책',      field: 'assignedRole',      example: '3학년 1반 담임',        required: true  },
   { label: '상태',            field: 'status',            example: 'normal',               required: false },
   { label: '충전카트번호',    field: 'chargingCartNo',    example: '1호기-#03',            required: false },
@@ -58,18 +57,18 @@ const STATUS_GUIDE = [
 // 샘플 데이터 행 3개
 const SAMPLE_ROWS = [
   [
-    'SCH-2024-001', 'Galaxy Tab S8 Edu', 'smart_tablet', 'SM-X700', 'Samsung',
-    'R52T301ABCD', '2024-03-01', '5', '3학년 1반', '3학년 1반', '3학년 1반 담임',
+    'M000005496', 'Galaxy Tab S8 Edu', 'smart_tablet', 'SM-X700', 'Samsung',
+    'R52T301ABCD', '2024-03-01', '5', '3학년 1반', '3학년 1반 담임',
     'normal', '1호기-#03', '', '', '', '', '192.168.1.101', '', '', '정상 사용중',
   ],
   [
-    'SCH-2024-002', 'ThinkPad L15 Gen4', 'smart_laptop', 'L15 Gen4', 'Lenovo',
-    'MP2X12345', '2024-03-01', '5', '4학년 1반', '4학년 1반', '4학년 1반 담임',
+    'M000005497', 'ThinkPad L15 Gen4', 'smart_laptop', 'L15 Gen4', 'Lenovo',
+    'MP2X12345', '2024-03-01', '5', '4학년 1반', '4학년 1반 담임',
     'normal', '2호기-#01', '', '', '', '', '192.168.1.102', '', '', '',
   ],
   [
-    'SCH-2024-003', 'LG 그램 14', 'teacher_laptop', 'LG 14Z90R', 'LG',
-    'LGT30011ABC', '2024-03-01', '5', '교무실', '교무실', '교무부장',
+    'M000005498', 'LG 그램 14', 'teacher_laptop', 'LG 14Z90R', 'LG',
+    'LGT30011ABC', '2024-03-01', '5', '교무실', '교무부장',
     'normal', '', 'B-03', '', '', '', '192.168.1.103', '', '', '교원 배정 노트북',
   ],
 ];
