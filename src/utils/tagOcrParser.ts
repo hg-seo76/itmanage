@@ -1,4 +1,4 @@
-import { createWorker } from 'tesseract.js';
+// Tesseract.js removed in favor of Google Cloud Vision API
 import type { DeviceCategory } from '../types/asset';
 
 export interface ParsedTagResult {
@@ -261,61 +261,58 @@ function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
 }
 
 /**
- * Canvas를 Blob으로 변환
+ * Canvas를 Base64 (JPEG) 포맷으로 변환 (Google Vision API 전송용)
  */
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('Canvas to Blob 변환 실패'));
-      },
-      'image/png',
-      1.0
-    );
-  });
+function canvasToBase64(canvas: HTMLCanvasElement): string {
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // 품질 80% 압축 (네트워크 전송량 감소)
+  // "data:image/jpeg;base64," 접두사 제거
+  return dataUrl.split(',')[1];
 }
 
 /**
- * 업로드된 이미지 파일에서 Tesseract OCR로 텍스트를 인식한 후 파싱.
+ * 업로드된 이미지 파일에서 Google Cloud Vision API로 텍스트를 인식한 후 파싱.
  * 안드로이드 카메라 사진에 최적화된 이미지 전처리 포함.
  */
 export async function scanTagImage(
   imageFile: File | Blob | string,
   onProgress?: (progress: number, status: string) => void
 ): Promise<ParsedTagResult> {
-  if (onProgress) onProgress(0.05, 'OCR 엔진 준비 중...');
+  if (onProgress) onProgress(0.1, '📷 이미지 전처리 중 (용량 최적화 및 흑백 변환)...');
 
-  const worker = await createWorker('kor+eng');
+  let base64Image = '';
 
-  // Tesseract 설정: 단일 균일 블록(PSM 6) → 라벨 형태에 적합
-  await worker.setParameters({
-    tessedit_pageseg_mode: '6' as any,
-    preserve_interword_spaces: '1' as any,
-  });
-
-  let ocrInput: File | Blob | string = imageFile;
-
-  // File 또는 Blob인 경우에만 이미지 전처리 적용 (문자열 URL은 그대로)
   if (imageFile instanceof File || imageFile instanceof Blob) {
     try {
-      if (onProgress) onProgress(0.2, '📷 이미지 전처리 중 (그레이스케일 · 대비 강화)...');
       const preprocessed = await preprocessImageForOcr(imageFile);
-      ocrInput = await canvasToBlob(preprocessed);
+      base64Image = canvasToBase64(preprocessed);
     } catch (preprocessErr) {
-      console.warn('이미지 전처리 실패, 원본으로 진행:', preprocessErr);
-      ocrInput = imageFile;
+      console.warn('이미지 전처리 실패:', preprocessErr);
+      throw new Error('이미지 처리 중 오류가 발생했습니다.');
     }
+  } else {
+    throw new Error('문자열 URL 이미지는 지원하지 않습니다. 파일 객체가 필요합니다.');
   }
 
-  if (onProgress) onProgress(0.45, '🔍 태그 글자 AI 인식(OCR) 분석 중...');
+  if (onProgress) onProgress(0.5, '☁️ Google Cloud AI 텍스트 분석 중...');
   
-  const ret = await worker.recognize(ocrInput);
-  const text = ret.data.text;
+  // Vercel Serverless Function 호출
+  const response = await fetch('/api/vision', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ imageBase64: base64Image })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Google Vision API 호출 실패');
+  }
+
+  const text = data.text || '';
   
   if (onProgress) onProgress(0.9, '✅ 인식 데이터 필드 파싱 중...');
-
-  await worker.terminate();
 
   return parseTagText(text);
 }
