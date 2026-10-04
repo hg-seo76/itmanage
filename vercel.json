@@ -1,0 +1,9 @@
+{
+  "buildCommand": "cd school-itam && npm run build",
+  "outputDirectory": "school-itam/dist",
+  "installCommand": "cd school-itam && npm install",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
