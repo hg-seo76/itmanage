@@ -146,22 +146,122 @@ export function parseTagText(rawText: string): ParsedTagResult {
 }
 
 /**
- * 업로드된 이미지 파일에서 Tesseract OCR로 텍스트를 인식한 후 파싱
+ * Canvas API를 이용해 이미지를 OCR에 최적화된 형태로 전처리합니다.
+ * - 그레이스케일 변환 (컬러 노이즈 제거)
+ * - 대비(Contrast) 강화 (글자 선명도 향상)
+ * - 안드로이드 고해상도 사진 리사이즈 (OCR 속도 최적화)
+ */
+function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      // OCR 최적 해상도: 너무 크면 속도 저하, 너무 작으면 정확도 저하
+      // 태그 라벨 기준 2000px 이내가 최적
+      const MAX_DIM = 2000;
+      let { naturalWidth: w, naturalHeight: h } = img;
+      if (w > MAX_DIM || h > MAX_DIM) {
+        const scale = MAX_DIM / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+
+      // 1단계: 이미지를 캔버스에 그리기
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // 2단계: 픽셀 데이터 조작으로 그레이스케일 + 대비 강화
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+      const contrast = 60; // 대비 강화 계수 (0~100)
+      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+      for (let i = 0; i < data.length; i += 4) {
+        // 그레이스케일: 인간 눈 밝기 가중치 (luminosity method)
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        // 대비 강화
+        const c = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
+        data[i] = c;
+        data[i + 1] = c;
+        data[i + 2] = c;
+        // alpha는 그대로
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      // 3단계: 흰 배경에 합성 (투명 PNG 대응)
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = w;
+      finalCanvas.height = h;
+      const finalCtx = finalCanvas.getContext('2d')!;
+      finalCtx.fillStyle = '#ffffff';
+      finalCtx.fillRect(0, 0, w, h);
+      finalCtx.drawImage(canvas, 0, 0);
+
+      resolve(finalCanvas);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file as Blob);
+  });
+}
+
+/**
+ * Canvas를 Blob으로 변환
+ */
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Canvas to Blob 변환 실패'));
+      },
+      'image/png',
+      1.0
+    );
+  });
+}
+
+/**
+ * 업로드된 이미지 파일에서 Tesseract OCR로 텍스트를 인식한 후 파싱.
+ * 안드로이드 카메라 사진에 최적화된 이미지 전처리 포함.
  */
 export async function scanTagImage(
   imageFile: File | Blob | string,
   onProgress?: (progress: number, status: string) => void
 ): Promise<ParsedTagResult> {
-  if (onProgress) onProgress(0.1, 'OCR 엔진 준비 중...');
+  if (onProgress) onProgress(0.05, 'OCR 엔진 준비 중...');
 
   const worker = await createWorker('kor+eng');
+
+  // Tesseract 설정: 단일 균일 블록(PSM 6) → 라벨 형태에 적합
+  await worker.setParameters({
+    tessedit_pageseg_mode: '6' as any,
+    preserve_interword_spaces: '1' as any,
+  });
+
+  let ocrInput: File | Blob | string = imageFile;
+
+  // File 또는 Blob인 경우에만 이미지 전처리 적용 (문자열 URL은 그대로)
+  if (imageFile instanceof File || imageFile instanceof Blob) {
+    try {
+      if (onProgress) onProgress(0.2, '📷 이미지 전처리 중 (그레이스케일 · 대비 강화)...');
+      const preprocessed = await preprocessImageForOcr(imageFile);
+      ocrInput = await canvasToBlob(preprocessed);
+    } catch (preprocessErr) {
+      console.warn('이미지 전처리 실패, 원본으로 진행:', preprocessErr);
+      ocrInput = imageFile;
+    }
+  }
+
+  if (onProgress) onProgress(0.45, '🔍 태그 글자 AI 인식(OCR) 분석 중...');
   
-  if (onProgress) onProgress(0.4, '물품 태그 이미지 글자 인식(OCR) 중...');
-  
-  const ret = await worker.recognize(imageFile);
+  const ret = await worker.recognize(ocrInput);
   const text = ret.data.text;
   
-  if (onProgress) onProgress(0.9, '인식 데이터 필드 파싱 중...');
+  if (onProgress) onProgress(0.9, '✅ 인식 데이터 필드 파싱 중...');
 
   await worker.terminate();
 
