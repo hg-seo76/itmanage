@@ -9,7 +9,8 @@ import {
   PlusCircle,
   Table2,
   UserCheck,
-  Sparkles
+  Sparkles,
+  CloudUpload
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,6 +26,7 @@ interface HeaderProps {
   onOpenBulkImportModal: () => void;
   onOpenAuthModal: () => void;
   onOpenTagScannerModal?: () => void;
+  onUploadLocalToCloud?: () => void;
   isCloudSynced?: boolean;
 }
 
@@ -40,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBulkImportModal,
   onOpenAuthModal,
   onOpenTagScannerModal,
+  onUploadLocalToCloud,
   isCloudSynced = false,
 }) => {
   const { userEmail, isAuthenticated } = useAuth();
@@ -85,6 +88,18 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Firestore 실시간 동기화 중" />
           )}
         </button>
+
+        {/* DB Cloud Upload Sync Button */}
+        {onUploadLocalToCloud && (
+          <button
+            onClick={onUploadLocalToCloud}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+            title="현재 브라우저에 저장된 자산 데이터를 파이어베이스 클라우드로 일괄 동기화합니다."
+          >
+            <CloudUpload className="w-4 h-4 text-emerald-400" />
+            <span>DB 클라우드 동기화</span>
+          </button>
+        )}
 
         {/* Add Asset Button */}
         <button

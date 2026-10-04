@@ -92,6 +92,13 @@ const AppContent: React.FC = () => {
         if (firestoreAssets.length > 0) {
           setAssets(firestoreAssets);
           setIsCloudSynced(true);
+        } else {
+          // If Firestore is empty, upload local assets automatically to cloud
+          if (assets.length > 0) {
+            batchSaveAssetsToFirestore(assets)
+              .then(() => setIsCloudSynced(true))
+              .catch(err => console.error('Auto upload local assets failed:', err));
+          }
         }
       },
       (error) => {
@@ -102,6 +109,21 @@ const AppContent: React.FC = () => {
 
     return () => unsubscribe();
   }, [isFirebaseConfigured]);
+
+  const handleUploadLocalToCloud = async () => {
+    if (!isFirebaseConfigured) {
+      alert('Firebase 클라우드가 연동되어 있지 않습니다.');
+      return;
+    }
+    try {
+      await batchSaveAssetsToFirestore(assets);
+      setIsCloudSynced(true);
+      alert(`성공! 현재 로컬 브라우저 자산 ${assets.length}건이 파이어베이스 클라우드로 동기화 업로드되었습니다.`);
+    } catch (err: any) {
+      console.error(err);
+      alert('클라우드 동기화 실패: ' + (err.message || '알 수 없는 오류'));
+    }
+  };
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -359,6 +381,7 @@ const AppContent: React.FC = () => {
           onOpenBulkImportModal={() => setIsBulkImportModalOpen(true)}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
           onOpenTagScannerModal={() => setIsMainTagScannerOpen(true)}
+          onUploadLocalToCloud={handleUploadLocalToCloud}
           isCloudSynced={isCloudSynced}
         />
 
