@@ -30,23 +30,75 @@ export function parseTagText(rawText: string): ParsedTagResult {
   const priceMatch = fullText.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
   const price = priceMatch ? priceMatch[1] : undefined;
 
-  // 3. 취득일자 추출 (예: 2026-04-20(5), 2026 . 04 . 20, 2026년 04월 20일, 26-04-20)
+  // 3. 취득일자 추출 — OCR 오인식 교정 + 다단계 추출 전략
   let acquisitionYear = new Date().getFullYear();
   let acquisitionMonth = new Date().getMonth() + 1;
-  const dateMatch = 
-    fullText.match(/(?:취득\s*일자)?\s*[:\s]*(\d{2,4})\s*[\s.\-/년–—_]+\s*(\d{1,2})\s*[\s.\-/월–—_]+\s*(\d{1,2})/);
 
-  if (dateMatch) {
-    let parsedYear = parseInt(dateMatch[1], 10);
-    const parsedMonth = parseInt(dateMatch[2], 10);
-    
-    if (parsedYear >= 0 && parsedYear <= 99) {
-      parsedYear += 2000;
+  (() => {
+    // ① OCR 오인식 문자 교정 (숫자처럼 생긴 영문자)
+    const corrected = fullText
+      .replace(/[Oo](?=\d)/g, '0')   // O1 → 01
+      .replace(/(?<=\d)[Oo]/g, '0')  // 1O → 10
+      .replace(/\bO\b/g, '0')        // 단독 O → 0
+      .replace(/[Zz](?=\d{2,3})/g, '2') // Z026 → 2026
+      .replace(/[Ii](?=\d)/g, '1')   // I2 → 12
+      .replace(/(?<=\d)[Ii]/g, '1')  // 2I → 21
+      .replace(/[Ss](?=\d)/g, '5')   // S → 5
+      .replace(/[Bb](?=\d)/g, '8');  // B → 8
+
+    // ② "취득 일자" 키워드 이후 텍스트 집중 추출 (가장 신뢰도 높음)
+    const dateContextMatch = corrected.match(/취득\s*일\s*자(.{0,50})/);
+    const dateContext = dateContextMatch ? dateContextMatch[1] : corrected;
+
+    // ③ 날짜 컨텍스트에서 모든 숫자 토큰 추출 (구분자 종류 무관)
+    const numTokens = dateContext.match(/\d+/g) || [];
+
+    let foundYear: number | null = null;
+    let foundMonth: number | null = null;
+
+    for (let i = 0; i < numTokens.length; i++) {
+      const n = parseInt(numTokens[i], 10);
+      const raw = numTokens[i];
+
+      // 4자리 연도 패턴 (1990~2099)
+      if (raw.length === 4 && n >= 1990 && n <= 2099) {
+        foundYear = n;
+        // 연도 바로 다음 토큰이 월 (1~12)
+        if (i + 1 < numTokens.length) {
+          const nextN = parseInt(numTokens[i + 1], 10);
+          if (nextN >= 1 && nextN <= 12) {
+            foundMonth = nextN;
+          }
+        }
+        break;
+      }
+
+      // 2자리 연도 (20년대: 20~29)
+      if (raw.length === 2 && n >= 20 && n <= 29) {
+        foundYear = 2000 + n;
+        if (i + 1 < numTokens.length) {
+          const nextN = parseInt(numTokens[i + 1], 10);
+          if (nextN >= 1 && nextN <= 12) {
+            foundMonth = nextN;
+          }
+        }
+        break;
+      }
     }
-    
-    if (parsedYear >= 1990 && parsedYear <= 2099) acquisitionYear = parsedYear;
-    if (parsedMonth >= 1 && parsedMonth <= 12) acquisitionMonth = parsedMonth;
-  }
+
+    // ④ 키워드 컨텍스트에서 못 찾으면 전체 텍스트에서 "20xx-MM-DD" 패턴 검색
+    if (!foundYear) {
+      const globalMatch = corrected.match(/(20\d{2})\D{0,3}(0?[1-9]|1[0-2])\D{0,3}\d{1,2}/);
+      if (globalMatch) {
+        foundYear = parseInt(globalMatch[1], 10);
+        foundMonth = parseInt(globalMatch[2], 10);
+      }
+    }
+
+    if (foundYear) acquisitionYear = foundYear;
+    if (foundMonth) acquisitionMonth = foundMonth;
+  })();
+
 
   // 4. 품명 추출 (예: 데스크톱컴퓨터)
   let name = '데스크톱 컴퓨터';
