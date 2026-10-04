@@ -9,8 +9,8 @@ import {
   PlusCircle,
   Table2,
   UserCheck,
-  Sparkles,
-  CloudUpload
+  CloudUpload,
+  Camera
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -110,15 +110,15 @@ export const Header: React.FC<HeaderProps> = ({
           <span>신규 기기 등록</span>
         </button>
 
-        {/* AI Tag Scan Button */}
+        {/* Camera Add Asset Button */}
         {onOpenTagScannerModal && (
           <button
             onClick={onOpenTagScannerModal}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-cyan-600/30 to-blue-600/30 text-cyan-200 border border-cyan-500/40 hover:from-cyan-600 hover:to-blue-600 hover:text-white transition-all shadow-sm"
-            title="물품 태그(RFID 스티커) 사진 스캔 및 자동 폼 입력"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 transition-all shadow-md shadow-cyan-600/20"
+            title="스마트폰/아이패드 카메라로 물품 태그 라벨을 촬영하여 기기를 추가합니다"
           >
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>태그 사진 AI 스캔</span>
+            <Camera className="w-4 h-4" />
+            <span>📷 카메라로 기기 추가</span>
           </button>
         )}
 

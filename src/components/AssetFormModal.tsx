@@ -7,7 +7,7 @@ import {
   Wifi, 
   MapPin, 
   UserCheck,
-  Sparkles
+  Camera
 } from 'lucide-react';
 import type { Asset, DeviceCategory } from '../types/asset';
 import { BUILDING_STRUCTURE } from '../data/buildingLayout';
@@ -237,10 +237,10 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               type="button"
               onClick={() => setIsTagScannerOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition-all"
-              title="물품 태그(RFID 스티커) 사진을 분석하여 양식을 자동 채웁니다"
+              title="카메라로 물품 스티커/태그를 촬영하여 자동 추가합니다"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>📷 태그 사진 AI 스캔</span>
+              <Camera className="w-4 h-4" />
+              <span>📷 카메라로 추가</span>
             </button>
 
             <button
@@ -250,6 +250,27 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               닫기
             </button>
           </div>
+        </div>
+
+        {/* Quick Camera Scan Banner */}
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-900/40 via-indigo-900/40 to-slate-900 border border-blue-500/30 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-blue-500/20 text-blue-300">
+              <Camera className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-blue-200">📷 카메라 촬영으로 자동 등록하기</div>
+              <div className="text-[11px] text-slate-400">카메라로 기기 라벨/RFID 태그를 촬영하면 자산번호·기종명이 자동 입력됩니다.</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsTagScannerOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-blue-600/30 transition-all shrink-0"
+          >
+            <Camera className="w-4 h-4" />
+            <span>카메라 촬영 스캔</span>
+          </button>
         </div>
 
         {/* Form Body */}
