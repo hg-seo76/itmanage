@@ -13,6 +13,27 @@ import type { Asset } from '../types/asset';
 const COLLECTION_NAME = 'school_itam_assets';
 
 /**
+ * Firestore는 undefined 값을 허용하지 않습니다.
+ * 객체에서 undefined 필드를 재귀적으로 제거합니다.
+ */
+function sanitizeAsset(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj !== 'object' || Array.isArray(obj)) return obj;
+
+  const result: any = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val === undefined) continue; // undefined 필드 완전 제거
+    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+      result[key] = sanitizeAsset(val); // 중첩 객체 재귀 처리
+    } else {
+      result[key] = val;
+    }
+  }
+  return result;
+}
+
+/**
  * Firestore에서 자산 목록을 실시간 구독(Listen)합니다.
  */
 export function subscribeToFirestoreAssets(
@@ -50,12 +71,13 @@ export function subscribeToFirestoreAssets(
 
 /**
  * 단일 자산을 Firestore에 저장/업데이트합니다.
+ * undefined 필드를 자동 제거하여 Firestore 오류 방지.
  */
 export async function saveAssetToFirestore(asset: Asset): Promise<void> {
   if (!isFirebaseConfigured || !db) return;
   try {
     const docRef = doc(db, COLLECTION_NAME, asset.id);
-    await setDoc(docRef, asset, { merge: true });
+    await setDoc(docRef, sanitizeAsset(asset), { merge: true });
   } catch (err: any) {
     console.error('saveAssetToFirestore failed:', err);
     throw err;
@@ -78,6 +100,7 @@ export async function deleteAssetFromFirestore(assetId: string): Promise<void> {
 
 /**
  * 여러 자산을 일괄 저장(Batch Save)합니다.
+ * undefined 필드를 자동 제거하여 Firestore 오류 방지.
  */
 export async function batchSaveAssetsToFirestore(assets: Asset[]): Promise<void> {
   if (!isFirebaseConfigured || !db || assets.length === 0) return;
@@ -91,7 +114,7 @@ export async function batchSaveAssetsToFirestore(assets: Asset[]): Promise<void>
 
       chunk.forEach((asset) => {
         const docRef = doc(db, COLLECTION_NAME, asset.id);
-        batch.set(docRef, asset, { merge: true });
+        batch.set(docRef, sanitizeAsset(asset), { merge: true });
       });
 
       await batch.commit();
