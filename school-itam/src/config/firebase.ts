@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import type { FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import type { Auth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -30,7 +30,10 @@ if (hasConfigKeys) {
   try {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
-    db = getFirestore(app);
+    // 안드로이드 WebView나 인앱 브라우저(카카오톡 등)에서 IndexedDB 권한/용량 문제로 동기화 실패 방지
+    db = initializeFirestore(app, {
+      localCache: memoryLocalCache()
+    });
   } catch (error) {
     console.warn('Firebase initialization skipped:', error);
   }
