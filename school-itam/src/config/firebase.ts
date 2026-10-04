@@ -6,16 +6,16 @@ import { getFirestore } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBKyKOE8X4yi2Yq5kCVX75FEH_t94gTWGY',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'itmanage-c6fe0.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'itmanage-c6fe0',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'itmanage-c6fe0.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1061998028454',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:1061998028454:web:e698e983e69051df2af667',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-ZTWVEL88J9',
 };
 
-// Check if Firebase is valid and configured via environment variables
+// Check if Firebase is valid and configured
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey && 
   firebaseConfig.apiKey !== 'your-api-key-here' &&
