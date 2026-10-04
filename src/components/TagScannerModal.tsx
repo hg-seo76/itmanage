@@ -237,6 +237,19 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Raw OCR Text Debug */}
+              <div className="pt-2">
+                <details className="group border border-slate-800 bg-slate-900/50 rounded-xl overflow-hidden">
+                  <summary className="px-4 py-2.5 text-xs font-semibold text-slate-400 cursor-pointer hover:bg-slate-800/80 transition-all flex items-center justify-between">
+                    <span>🧐 OCR 원본 인식 텍스트 보기 (디버그)</span>
+                    <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-500 group-open:hidden">열기</span>
+                  </summary>
+                  <div className="p-4 bg-slate-950 border-t border-slate-800 text-[10px] text-slate-500 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
+                    {parsedResult.rawText || '인식된 텍스트가 없습니다.'}
+                  </div>
+                </details>
+              </div>
             </div>
           )}
 
