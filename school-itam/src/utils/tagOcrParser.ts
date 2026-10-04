@@ -30,16 +30,20 @@ export function parseTagText(rawText: string): ParsedTagResult {
   const priceMatch = fullText.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
   const price = priceMatch ? priceMatch[1] : undefined;
 
-  // 3. 취득일자 추출 (예: 2026-04-20(5), 2026 . 04 . 20, 2026년 04월 20일)
+  // 3. 취득일자 추출 (예: 2026-04-20(5), 2026 . 04 . 20, 2026년 04월 20일, 26-04-20)
   let acquisitionYear = new Date().getFullYear();
   let acquisitionMonth = new Date().getMonth() + 1;
   const dateMatch = 
-    fullText.match(/취득\s*일자\s*[:\s]*(\d{4})\s*[\s.\-/년–—_]+\s*(\d{1,2})\s*[\s.\-/월–—_]+\s*(\d{1,2})/) || 
-    fullText.match(/(\d{4})\s*[\s.\-/년–—_]+\s*(\d{1,2})\s*[\s.\-/월–—_]+\s*(\d{1,2})/);
+    fullText.match(/(?:취득\s*일자)?\s*[:\s]*(\d{2,4})\s*[\s.\-/년–—_]+\s*(\d{1,2})\s*[\s.\-/월–—_]+\s*(\d{1,2})/);
 
   if (dateMatch) {
-    const parsedYear = parseInt(dateMatch[1], 10);
+    let parsedYear = parseInt(dateMatch[1], 10);
     const parsedMonth = parseInt(dateMatch[2], 10);
+    
+    if (parsedYear >= 0 && parsedYear <= 99) {
+      parsedYear += 2000;
+    }
+    
     if (parsedYear >= 1990 && parsedYear <= 2099) acquisitionYear = parsedYear;
     if (parsedMonth >= 1 && parsedMonth <= 12) acquisitionMonth = parsedMonth;
   }
