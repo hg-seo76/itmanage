@@ -4,7 +4,6 @@ import {
   Sparkles, 
   CheckCircle2, 
   X, 
-  ArrowRight, 
   RefreshCw,
   Tag
 } from 'lucide-react';
@@ -25,7 +24,8 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
   const [progressMessage, setProgressMessage] = useState('');
   const [parsedResult, setParsedResult] = useState<ParsedTagResult | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -78,23 +78,23 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in font-sans">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 text-blue-400">
-              <Sparkles className="w-5 h-5 animate-pulse" />
+              <Camera className="w-5 h-5 animate-pulse text-blue-400" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                <span>AI 물품 태그(RFID 스티커) 자동 분석</span>
+                <span>사진 촬영 / AI 태그 자동 분석</span>
                 <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30">
                   OCR 스캐너
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">사진을 올리면 분류번호, 품명, 규격, 취득단가, 위치가 자동으로 입력됩니다.</p>
+              <p className="text-xs text-slate-400">안드로이드/아이패드 카메라로 라벨을 찍거나 갤러리 사진을 선택하세요.</p>
             </div>
           </div>
           <button
@@ -108,53 +108,74 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
           
-          {/* Upload Drop Zone */}
+          {/* Upload Drop Zone & Inputs */}
           <div className="space-y-3">
+            {/* Hidden Input 1: Camera capture (Android & iOS native camera) */}
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* Hidden Input 2: Gallery/Album picker */}
+            <input
+              ref={galleryInputRef}
               type="file"
               accept="image/*"
               className="hidden"
               onChange={handleFileChange}
             />
 
-            <div className="flex gap-3">
+            {/* Camera & Gallery Touch-Friendly Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => cameraInputRef.current?.click()}
                 disabled={isScanning}
-                className="flex-1 border-2 border-dashed border-slate-700 hover:border-blue-500 hover:bg-blue-600/5 rounded-2xl p-4 text-center transition-all group relative overflow-hidden"
+                className="py-4 px-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2.5"
               >
+                <Camera className="w-5 h-5" />
+                <span>📸 안드로이드/아이패드 카메라 직접 촬영</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={isScanning}
+                className="py-4 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-2.5"
+              >
+                <Sparkles className="w-5 h-5 text-cyan-400" />
+                <span>🖼️ 갤러리/앨범 사진 선택</span>
+              </button>
+            </div>
+
+            {/* Image Preview & Demo Button */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <div className="flex-1 p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
                 {previewImage ? (
-                  <div className="flex items-center justify-center gap-3">
-                    <img src={previewImage} alt="Tag preview" className="h-12 max-w-[120px] object-cover rounded-lg border border-slate-700" />
-                    <div className="text-left">
-                      <p className="text-xs font-bold text-blue-300">업로드된 태그 이미지</p>
-                      <p className="text-[10px] text-slate-400">클릭하여 다른 사진 선택</p>
+                  <div className="flex items-center gap-3">
+                    <img src={previewImage} alt="Tag preview" className="h-12 w-16 object-cover rounded-lg border border-slate-700" />
+                    <div>
+                      <p className="text-xs font-bold text-blue-300">선택된 촬영 이미지</p>
+                      <p className="text-[10px] text-slate-400">다시 촬영하려면 위 버튼 클릭</p>
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <Camera className="w-8 h-8 mx-auto mb-2 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                    <p className="text-xs font-bold text-slate-200">태그 사진 촬영 또는 파일 업로드</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">JPG, PNG, WEBP 이미지 지원</p>
-                  </>
+                  <p className="text-xs text-slate-400 pl-2">선택된 사진 없음 (카메라 촬영 또는 갤러리 선택)</p>
                 )}
-              </button>
+              </div>
 
               <button
                 type="button"
                 onClick={handleRunDemoTag}
                 disabled={isScanning}
-                className="px-5 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left transition-all flex flex-col justify-between group"
+                className="px-4 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-left transition-all shrink-0 flex items-center gap-2"
               >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
-                  <Tag className="w-4 h-4 text-amber-400" />
-                  <span>첨부해주신 태그 사진 테스트</span>
-                </div>
-                <span className="text-[11px] text-slate-400 group-hover:text-slate-200 flex items-center gap-1 mt-2">
-                  샘플 스티커 분석하기 <ArrowRight className="w-3 h-3 text-amber-400" />
-                </span>
+                <Tag className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-xs font-bold text-amber-300">샘플 태그 테스트</span>
               </button>
             </div>
           </div>
