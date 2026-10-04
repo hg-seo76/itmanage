@@ -15,19 +15,18 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-ZTWVEL88J9',
 };
 
-// Check if Firebase is valid and configured
-export const isFirebaseConfigured = Boolean(
-  firebaseConfig.apiKey && 
-  firebaseConfig.apiKey !== 'your-api-key-here' &&
-  firebaseConfig.projectId
-);
-
 let app: FirebaseApp | null = null;
 let auth: Auth | any = null;
 let db: Firestore | any = null;
 const googleProvider = new GoogleAuthProvider();
 
-if (isFirebaseConfigured) {
+const hasConfigKeys = Boolean(
+  firebaseConfig.apiKey && 
+  firebaseConfig.apiKey !== 'your-api-key-here' &&
+  firebaseConfig.projectId
+);
+
+if (hasConfigKeys) {
   try {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
@@ -36,6 +35,8 @@ if (isFirebaseConfigured) {
     console.warn('Firebase initialization skipped:', error);
   }
 }
+
+export const isFirebaseConfigured = Boolean(app && db);
 
 export { app, auth, db, googleProvider };
 export default app;
