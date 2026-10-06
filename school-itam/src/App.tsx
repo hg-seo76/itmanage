@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Asset, ViewTab, DisposalStatus } from './types/asset';
 import { INITIAL_ASSETS } from './data/sanitizedAssets';
-import { Sidebar } from './components/Sidebar';
+import { TopNavigation } from './components/TopNavigation';
 import { Header } from './components/Header';
 import { KpiCards } from './components/KpiCards';
 import { GoogleSheetsModal } from './components/GoogleSheetsModal';
@@ -82,7 +82,6 @@ const AppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<ViewTab>('building_map');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showMismatchOnly, setShowMismatchOnly] = useState<boolean>(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Firestore Realtime Subscription (If Firebase is configured & user logged in or active)
   useEffect(() => {
@@ -372,25 +371,9 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex text-slate-100 font-sans">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        currentTab={currentTab}
-        onSelectTab={(tab) => {
-          setCurrentTab(tab);
-          setShowMismatchOnly(false);
-        }}
-        privacyMode={privacyMode}
-        mismatchCount={totalMismatchCount}
-        totalAssetsCount={assets.length}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
-      />
-
-      {/* Main Layout */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Sticky Header */}
-        <Header
+    <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100 font-sans">
+      {/* Sticky Header */}
+      <Header
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           privacyMode={privacyMode}
@@ -403,6 +386,17 @@ const AppContent: React.FC = () => {
             setIsDbModalOpen(true);
           }}
           isCloudSynced={isCloudSynced}
+        />
+
+        {/* Top Navigation */}
+        <TopNavigation
+          currentTab={currentTab}
+          onSelectTab={(tab) => {
+            setCurrentTab(tab);
+            setShowMismatchOnly(false);
+          }}
+          mismatchCount={totalMismatchCount}
+          totalAssetsCount={assets.length}
         />
 
         {/* Content Container */}
@@ -464,7 +458,6 @@ const AppContent: React.FC = () => {
             )}
           </div>
         </main>
-      </div>
 
       {/* Google Sheets Sync Modal */}
       <GoogleSheetsModal
