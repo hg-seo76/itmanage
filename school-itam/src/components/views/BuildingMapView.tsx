@@ -25,6 +25,9 @@ import {
   RotateCcw,
   Plus,
   Edit3,
+  Tv,
+  Copy,
+  Presentation,
 } from 'lucide-react';
 import type { Asset, DeviceCategory } from '../../types/asset';
 
@@ -223,7 +226,7 @@ const LAYOUT_STORAGE_KEY = 'school_itam_custom_building_layout';
 
 export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember, onEditAsset, onDeleteAsset }: BuildingMapViewProps) {
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   // 층별/실별 구성원 커스텀 관리 상태
@@ -318,17 +321,137 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
   };
 
 
+  // ─────────────────────────────────────────────
+  // 기기 정렬 순위: 컴퓨터(1) > 모니터(2) > 노트북(3) > 태블릿(4) > 프린터(5) > 복사기(6) > 전자칠판(7) > TV(8) > 기타(99)
+  // ─────────────────────────────────────────────
+  const getDeviceSortRank = (asset: Asset): number => {
+    const cat = asset.category || '';
+    const name = (asset.name || '').toLowerCase();
+    const model = (asset.modelName || '').toLowerCase();
+    const combined = `${name} ${model} ${cat}`;
+
+    // 1. 컴퓨터 (데스크톱, PC 본체)
+    if (
+      cat === 'desktop_pc' ||
+      combined.includes('데스크톱') ||
+      combined.includes('데스크탑') ||
+      combined.includes('본체') ||
+      (combined.includes('컴퓨터') && !combined.includes('노트북'))
+    ) {
+      return 1;
+    }
+
+    // 2. 모니터
+    if (
+      cat === 'monitors' ||
+      combined.includes('모니터') ||
+      combined.includes('monitor') ||
+      combined.includes('lcd')
+    ) {
+      return 2;
+    }
+
+    // 3. 노트북
+    if (
+      cat === 'smart_laptop' ||
+      cat === 'teacher_laptop' ||
+      combined.includes('노트북') ||
+      combined.includes('laptop') ||
+      combined.includes('씽크패드') ||
+      combined.includes('thinkpad') ||
+      combined.includes('그램')
+    ) {
+      return 3;
+    }
+
+    // 4. 태블릿
+    if (
+      cat === 'smart_tablet' ||
+      combined.includes('태블릿') ||
+      combined.includes('tablet') ||
+      combined.includes('아이패드') ||
+      combined.includes('ipad') ||
+      combined.includes('갤럭시탭') ||
+      combined.includes('패드')
+    ) {
+      return 4;
+    }
+
+    // 5. 프린터
+    if (
+      (cat === 'printer' || combined.includes('프린터') || combined.includes('printer')) &&
+      !combined.includes('복사기') && !combined.includes('복합기')
+    ) {
+      return 5;
+    }
+
+    // 6. 복사기 (복사기 / 복합기)
+    if (
+      combined.includes('복사기') ||
+      combined.includes('복합기') ||
+      combined.includes('copier') ||
+      combined.includes('스캐너')
+    ) {
+      return 6;
+    }
+
+    // 7. 전자칠판
+    if (
+      combined.includes('전자칠판') ||
+      combined.includes('스마트보드') ||
+      combined.includes('전자보드') ||
+      combined.includes('칠판')
+    ) {
+      return 7;
+    }
+
+    // 8. TV
+    if (
+      combined.includes('tv') ||
+      combined.includes('텔레비전') ||
+      combined.includes('티비') ||
+      combined.includes('디스플레이')
+    ) {
+      return 8;
+    }
+
+    return 99;
+  };
+
+  const sortAssetsByCustomOrder = (a: Asset, b: Asset): number => {
+    const rankA = getDeviceSortRank(a);
+    const rankB = getDeviceSortRank(b);
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    return (a.name || '').localeCompare(b.name || '', 'ko');
+  };
+
   const filteredAssets = useMemo(() => {
     if (categoryFilter === 'all') return assets;
-    return assets.filter(a => a.category === categoryFilter);
+    return assets.filter(a => {
+      const rank = getDeviceSortRank(a);
+      if (categoryFilter === 'computer') return rank === 1;
+      if (categoryFilter === 'monitor') return rank === 2;
+      if (categoryFilter === 'laptop') return rank === 3;
+      if (categoryFilter === 'tablet') return rank === 4;
+      if (categoryFilter === 'printer') return rank === 5;
+      if (categoryFilter === 'copier') return rank === 6;
+      if (categoryFilter === 'board') return rank === 7;
+      if (categoryFilter === 'tv') return rank === 8;
+      return a.category === categoryFilter;
+    });
   }, [assets, categoryFilter]);
 
   const totalCount = filteredAssets.length;
-  const tabletCount = assets.filter(a => a.category === 'smart_tablet').length;
-  const smartLaptopCount = assets.filter(a => a.category === 'smart_laptop').length;
-  const teacherLaptopCount = assets.filter(a => a.category === 'teacher_laptop').length;
-  const printerCount = assets.filter(a => a.category === 'printer').length;
-  const desktopCount = assets.filter(a => a.category === 'desktop_pc').length;
+  const computerCount = assets.filter(a => getDeviceSortRank(a) === 1).length;
+  const monitorCount = assets.filter(a => getDeviceSortRank(a) === 2).length;
+  const laptopCount = assets.filter(a => getDeviceSortRank(a) === 3).length;
+  const tabletCount = assets.filter(a => getDeviceSortRank(a) === 4).length;
+  const printerCount = assets.filter(a => getDeviceSortRank(a) === 5).length;
+  const copierCount = assets.filter(a => getDeviceSortRank(a) === 6).length;
+  const boardCount = assets.filter(a => getDeviceSortRank(a) === 7).length;
+  const tvCount = assets.filter(a => getDeviceSortRank(a) === 8).length;
 
   const getAssetsForRoom = (room: RoomConfig): Asset[] => {
     return filteredAssets.filter(asset => {
@@ -351,27 +474,50 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
         const memName = member.name.toLowerCase();
         return role.includes(memName) || memName.includes(role);
       });
-      groups.push({ member, assets: [...memberAssets] });
+      // 컴퓨터 > 모니터 > 노트북 > 태블릿 > 프린터 > 복사기 > 전자칠판 > TV 순 정렬
+      memberAssets.sort(sortAssetsByCustomOrder);
+      groups.push({ member, assets: memberAssets });
     });
 
     // 특정 구성원에 매칭되지 않은 잔여 기기 → 첫 번째 구성원 그룹에 편입
     const assignedIds = new Set(groups.flatMap(g => g.assets.map(a => a.id)));
     const unmatched = roomAssets.filter(a => !assignedIds.has(a.id));
     if (unmatched.length > 0 && groups.length > 0) {
+      unmatched.sort(sortAssetsByCustomOrder);
       groups[0].assets.push(...unmatched);
+      groups[0].assets.sort(sortAssetsByCustomOrder);
     }
 
     return { groups, totalCount: roomAssets.length };
   };
 
-  const getDeviceIcon = (category: DeviceCategory) => {
-    switch (category) {
-      case 'smart_tablet': return <Tablet className="w-3.5 h-3.5 text-indigo-400" />;
-      case 'smart_laptop': return <Laptop className="w-3.5 h-3.5 text-blue-400" />;
-      case 'teacher_laptop': return <Laptop className="w-3.5 h-3.5 text-cyan-400" />;
-      case 'printer': return <Printer className="w-3.5 h-3.5 text-amber-400" />;
-      case 'server': return <Server className="w-3.5 h-3.5 text-purple-400" />;
-      default: return <Monitor className="w-3.5 h-3.5 text-emerald-400" />;
+  const getDeviceIcon = (asset: Asset) => {
+    const rank = getDeviceSortRank(asset);
+    switch (rank) {
+      case 1: return <Monitor className="w-3.5 h-3.5 text-emerald-400" />;
+      case 2: return <Monitor className="w-3.5 h-3.5 text-teal-400" />;
+      case 3: return <Laptop className="w-3.5 h-3.5 text-blue-400" />;
+      case 4: return <Tablet className="w-3.5 h-3.5 text-indigo-400" />;
+      case 5: return <Printer className="w-3.5 h-3.5 text-amber-400" />;
+      case 6: return <Copy className="w-3.5 h-3.5 text-orange-400" />;
+      case 7: return <Presentation className="w-3.5 h-3.5 text-purple-400" />;
+      case 8: return <Tv className="w-3.5 h-3.5 text-pink-400" />;
+      default: return <Monitor className="w-3.5 h-3.5 text-slate-400" />;
+    }
+  };
+
+  const getDeviceCategoryBadge = (asset: Asset) => {
+    const rank = getDeviceSortRank(asset);
+    switch (rank) {
+      case 1: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-emerald-500/20 text-emerald-300">컴퓨터</span>;
+      case 2: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-teal-500/20 text-teal-300">모니터</span>;
+      case 3: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-blue-500/20 text-blue-300">노트북</span>;
+      case 4: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-indigo-500/20 text-indigo-300">태블릿</span>;
+      case 5: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-amber-500/20 text-amber-300">프린터</span>;
+      case 6: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-orange-500/20 text-orange-300">복사기</span>;
+      case 7: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-purple-500/20 text-purple-300">전자칠판</span>;
+      case 8: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-pink-500/20 text-pink-300">TV</span>;
+      default: return null;
     }
   };
 
@@ -443,11 +589,11 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
             <Filter className="w-3.5 h-3.5 text-blue-400" />
             기기 종류 선택 필터:
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 no-print">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5 no-print">
             {/* 전체 */}
             <button
               onClick={() => setCategoryFilter('all')}
-              className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between ${
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
                 categoryFilter === 'all'
                   ? 'bg-blue-600/20 border-blue-500 text-white ring-2 ring-blue-500/40 shadow-lg'
                   : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
@@ -457,87 +603,87 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                 <p className="text-[11px] font-medium">전체 기기</p>
                 <p className="text-xs font-bold text-slate-100">{totalCount}대</p>
               </div>
-              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                <CheckCircle2 className="w-4 h-4" />
+              <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5" />
               </div>
             </button>
 
-            {/* 스마트 태블릿 */}
+            {/* 1. 컴퓨터 */}
             <button
-              onClick={() => setCategoryFilter('smart_tablet')}
-              className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between ${
-                categoryFilter === 'smart_tablet'
-                  ? 'bg-indigo-600/20 border-indigo-500 text-white ring-2 ring-indigo-500/40 shadow-lg'
-                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
-              }`}
-            >
-              <div>
-                <p className="text-[11px] font-medium">스마트 태블릿</p>
-                <p className="text-xs font-bold text-indigo-300">{tabletCount}대</p>
-              </div>
-              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                <Tablet className="w-4 h-4" />
-              </div>
-            </button>
-
-            {/* 교육용 노트북 */}
-            <button
-              onClick={() => setCategoryFilter('smart_laptop')}
-              className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between ${
-                categoryFilter === 'smart_laptop'
-                  ? 'bg-blue-600/20 border-blue-500 text-white ring-2 ring-blue-500/40 shadow-lg'
-                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
-              }`}
-            >
-              <div>
-                <p className="text-[11px] font-medium">교육용 노트북</p>
-                <p className="text-xs font-bold text-blue-300">{smartLaptopCount}대</p>
-              </div>
-              <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
-                <Laptop className="w-4 h-4" />
-              </div>
-            </button>
-
-            {/* 교원용 노트북 */}
-            <button
-              onClick={() => setCategoryFilter('teacher_laptop')}
-              className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between ${
-                categoryFilter === 'teacher_laptop'
-                  ? 'bg-cyan-600/20 border-cyan-500 text-white ring-2 ring-cyan-500/40 shadow-lg'
-                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
-              }`}
-            >
-              <div>
-                <p className="text-[11px] font-medium">교원용 노트북</p>
-                <p className="text-xs font-bold text-cyan-300">{teacherLaptopCount}대</p>
-              </div>
-              <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
-                <Laptop className="w-4 h-4" />
-              </div>
-            </button>
-
-            {/* 데스크탑 PC */}
-            <button
-              onClick={() => setCategoryFilter('desktop_pc')}
-              className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between ${
-                categoryFilter === 'desktop_pc'
+              onClick={() => setCategoryFilter('computer')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'computer'
                   ? 'bg-emerald-600/20 border-emerald-500 text-white ring-2 ring-emerald-500/40 shadow-lg'
                   : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
               }`}
             >
               <div>
-                <p className="text-[11px] font-medium">데스크탑 PC</p>
-                <p className="text-xs font-bold text-emerald-300">{desktopCount}대</p>
+                <p className="text-[11px] font-medium">컴퓨터</p>
+                <p className="text-xs font-bold text-emerald-300">{computerCount}대</p>
               </div>
-              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                <Monitor className="w-4 h-4" />
+              <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-400">
+                <Monitor className="w-3.5 h-3.5" />
               </div>
             </button>
 
-            {/* 프린터 */}
+            {/* 2. 모니터 */}
+            <button
+              onClick={() => setCategoryFilter('monitor')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'monitor'
+                  ? 'bg-teal-600/20 border-teal-500 text-white ring-2 ring-teal-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">모니터</p>
+                <p className="text-xs font-bold text-teal-300">{monitorCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-teal-500/10 text-teal-400">
+                <Monitor className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 3. 노트북 */}
+            <button
+              onClick={() => setCategoryFilter('laptop')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'laptop'
+                  ? 'bg-blue-600/20 border-blue-500 text-white ring-2 ring-blue-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">노트북</p>
+                <p className="text-xs font-bold text-blue-300">{laptopCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-blue-500/10 text-blue-400">
+                <Laptop className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 4. 태블릿 */}
+            <button
+              onClick={() => setCategoryFilter('tablet')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'tablet'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-white ring-2 ring-indigo-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">태블릿</p>
+                <p className="text-xs font-bold text-indigo-300">{tabletCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-400">
+                <Tablet className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 5. 프린터 */}
             <button
               onClick={() => setCategoryFilter('printer')}
-              className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between ${
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
                 categoryFilter === 'printer'
                   ? 'bg-amber-600/20 border-amber-500 text-white ring-2 ring-amber-500/40 shadow-lg'
                   : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
@@ -547,8 +693,62 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                 <p className="text-[11px] font-medium">프린터</p>
                 <p className="text-xs font-bold text-amber-300">{printerCount}대</p>
               </div>
-              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-                <Printer className="w-4 h-4" />
+              <div className="p-1 rounded-lg bg-amber-500/10 text-amber-400">
+                <Printer className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 6. 복사기 */}
+            <button
+              onClick={() => setCategoryFilter('copier')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'copier'
+                  ? 'bg-orange-600/20 border-orange-500 text-white ring-2 ring-orange-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">복사기</p>
+                <p className="text-xs font-bold text-orange-300">{copierCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-orange-500/10 text-orange-400">
+                <Copy className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 7. 전자칠판 */}
+            <button
+              onClick={() => setCategoryFilter('board')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'board'
+                  ? 'bg-purple-600/20 border-purple-500 text-white ring-2 ring-purple-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">전자칠판</p>
+                <p className="text-xs font-bold text-purple-300">{boardCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-purple-500/10 text-purple-400">
+                <Presentation className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 8. TV */}
+            <button
+              onClick={() => setCategoryFilter('tv')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'tv'
+                  ? 'bg-pink-600/20 border-pink-500 text-white ring-2 ring-pink-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">TV</p>
+                <p className="text-xs font-bold text-pink-300">{tvCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-pink-500/10 text-pink-400">
+                <Tv className="w-3.5 h-3.5" />
               </div>
             </button>
           </div>
@@ -693,7 +893,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                                     title="클릭하여 기기 상세 정보 보기"
                                   >
                                     <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 mr-1">
-                                      {getDeviceIcon(asset.category)}
+                                      {getDeviceIcon(asset)}
                                       <span className="font-mono text-blue-300 font-bold shrink-0">{asset.id}</span>
                                       <span className="truncate text-slate-300 group-hover/asset:text-slate-100 font-medium">{asset.name}</span>
                                       <span className="font-mono text-emerald-400 text-[10px] bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-800/40 shrink-0">
@@ -701,13 +901,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                                        asset.category === 'teacher_laptop' ? 'bg-cyan-500/20 text-cyan-300' :
-                                        asset.category === 'smart_laptop' ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-800 text-slate-400'
-                                      }`}>
-                                        {asset.category === 'teacher_laptop' ? '교원용' :
-                                         asset.category === 'smart_laptop' ? '교육용' : ''}
-                                      </span>
+                                      {getDeviceCategoryBadge(asset)}
                                       {asset.isLocationMismatch && (
                                         <span className="text-[9px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">
                                           !불일치
