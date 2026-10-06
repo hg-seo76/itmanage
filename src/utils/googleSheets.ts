@@ -186,6 +186,8 @@ export function convertCsvToAssets(csvText: string): Asset[] {
       category = 'network_ap';
     } else if (rawCategory.includes('모니터') || rawCategory.includes('monitor')) {
       category = 'monitors';
+    } else if (rawCategory.includes('카메라') || rawCategory.includes('디카') || rawCategory.includes('camera') || name.includes('카메라') || name.includes('디카')) {
+      category = 'digital_camera';
     }
 
     const isMismatch = ledgerLocation !== actualLocation;

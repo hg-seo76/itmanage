@@ -247,6 +247,8 @@ export function parseTagText(rawText: string): ParsedTagResult {
       name = '태블릿';
     } else if (fullText.includes('프린터') || fullText.includes('복합기')) {
       name = '프린터';
+    } else if (fullText.includes('디지털카메라') || fullText.includes('카메라') || fullText.includes('캠코더')) {
+      name = '디지털카메라';
     }
   }
 
@@ -259,6 +261,9 @@ export function parseTagText(rawText: string): ParsedTagResult {
     else if (fullText.includes('LG') || fullText.includes('엘지')) manufacturer = 'LG전자';
     else if (fullText.includes('레노버') || fullText.includes('Lenovo')) manufacturer = 'Lenovo';
     else if (fullText.includes('HP')) manufacturer = 'HP';
+    else if (fullText.includes('캐논') || fullText.includes('Canon')) manufacturer = 'Canon';
+    else if (fullText.includes('니콘') || fullText.includes('Nikon')) manufacturer = 'Nikon';
+    else if (fullText.includes('소니') || fullText.includes('SONY')) manufacturer = 'SONY';
   }
 
   // ─────────────────────────────────────────────
@@ -333,6 +338,8 @@ export function parseTagText(rawText: string): ParsedTagResult {
     category = 'server';
   } else if (nameLower.includes('ap') || nameLower.includes('와이파이') || nameLower.includes('공유기')) {
     category = 'network_ap';
+  } else if (nameLower.includes('디지털카메라') || nameLower.includes('디카') || nameLower.includes('카메라') || nameLower.includes('camera') || nameLower.includes('캠코더')) {
+    category = 'digital_camera';
   } else if (nameLower.includes('데스크톱') || nameLower.includes('데스크탑') || nameLower.includes('본체') || nameLower.includes('컴퓨터')) {
     category = 'desktop_pc';
   }

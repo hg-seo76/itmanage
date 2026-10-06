@@ -42,6 +42,7 @@ const CATEGORY_GUIDE = [
   '# monitors      = 모니터',
   '# network_ap    = 네트워크/AP',
   '# server        = 서버',
+  '# digital_camera= 디지털카메라',
   '# etc           = 기타',
 ];
 

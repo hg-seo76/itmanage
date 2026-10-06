@@ -27,6 +27,7 @@ import {
   Tv,
   Copy,
   Presentation,
+  Camera,
 } from 'lucide-react';
 import { isAssetInUse, type Asset } from '../../types/asset';
 
@@ -474,6 +475,18 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
       return 8;
     }
 
+    // 9. 디지털카메라
+    if (
+      cat === 'digital_camera' ||
+      combined.includes('디지털카메라') ||
+      combined.includes('디카') ||
+      combined.includes('카메라') ||
+      combined.includes('camera') ||
+      combined.includes('캠코더')
+    ) {
+      return 9;
+    }
+
     return 99;
   };
 
@@ -499,7 +512,8 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
         if (categoryFilter === 'copier' && rank !== 6) return false;
         if (categoryFilter === 'board' && rank !== 7) return false;
         if (categoryFilter === 'tv' && rank !== 8) return false;
-        if (!['computer','monitor','laptop','tablet','printer','copier','board','tv'].includes(categoryFilter) && a.category !== categoryFilter) {
+        if (categoryFilter === 'camera' && rank !== 9) return false;
+        if (!['computer','monitor','laptop','tablet','printer','copier','board','tv','camera'].includes(categoryFilter) && a.category !== categoryFilter) {
           return false;
         }
       }
@@ -524,6 +538,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
   const copierCount = assets.filter(a => getDeviceSortRank(a) === 6).length;
   const boardCount = assets.filter(a => getDeviceSortRank(a) === 7).length;
   const tvCount = assets.filter(a => getDeviceSortRank(a) === 8).length;
+  const cameraCount = assets.filter(a => getDeviceSortRank(a) === 9).length;
 
   const getAssetsForRoom = (room: RoomConfig): Asset[] => {
     return filteredAssets.filter(asset => {
@@ -546,7 +561,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
         const memName = member.name.toLowerCase();
         return role.includes(memName) || memName.includes(role);
       });
-      // 컴퓨터 > 모니터 > 노트북 > 태블릿 > 프린터 > 복사기 > 전자칠판 > TV 순 정렬
+      // 컴퓨터 > 모니터 > 노트북 > 태블릿 > 프린터 > 복사기 > 전자칠판 > TV > 디카 순 정렬
       memberAssets.sort(sortAssetsByCustomOrder);
       groups.push({ member, assets: memberAssets });
     });
@@ -574,6 +589,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
       case 6: return <Copy className="w-3.5 h-3.5 text-orange-400" />;
       case 7: return <Presentation className="w-3.5 h-3.5 text-purple-400" />;
       case 8: return <Tv className="w-3.5 h-3.5 text-pink-400" />;
+      case 9: return <Camera className="w-3.5 h-3.5 text-rose-400" />;
       default: return <Monitor className="w-3.5 h-3.5 text-slate-400" />;
     }
   };
@@ -589,6 +605,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
       case 6: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-orange-500/20 text-orange-300">복사기</span>;
       case 7: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-purple-500/20 text-purple-300">전자칠판</span>;
       case 8: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-pink-500/20 text-pink-300">TV</span>;
+      case 9: return <span className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-rose-500/20 text-rose-300">디카</span>;
       default: return null;
     }
   };
@@ -699,7 +716,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5 no-print">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2.5 no-print">
             {/* 전체 */}
             <button
               onClick={() => setCategoryFilter('all')}
@@ -859,6 +876,24 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               </div>
               <div className="p-1 rounded-lg bg-pink-500/10 text-pink-400">
                 <Tv className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 9. 디지털카메라 */}
+            <button
+              onClick={() => setCategoryFilter('camera')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'camera'
+                  ? 'bg-rose-600/20 border-rose-500 text-white ring-2 ring-rose-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">디지털카메라</p>
+                <p className="text-xs font-bold text-rose-300">{cameraCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-rose-500/10 text-rose-400">
+                <Camera className="w-3.5 h-3.5" />
               </div>
             </button>
           </div>
@@ -1181,7 +1216,8 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                       selectedAsset.category === 'printer'       ? '프린터 / 복합기' :
                       selectedAsset.category === 'monitors'      ? '모니터'        :
                       selectedAsset.category === 'network_ap'    ? '네트워크 AP'   :
-                      selectedAsset.category === 'server'        ? '서버'          : '기타' },
+                      selectedAsset.category === 'server'        ? '서버'          :
+                      selectedAsset.category === 'digital_camera'? '디지털카메라'  : '기타' },
                     { label: '모델명',   value: selectedAsset.modelName || '-' },
                     { label: '제조사',   value: selectedAsset.manufacturer || '-' },
                     { label: '일련번호', value: selectedAsset.serialNumber || '-', mono: true },

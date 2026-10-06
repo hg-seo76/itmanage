@@ -26,6 +26,7 @@ export const EduReportView: React.FC<EduReportViewProps> = ({
     { key: 'monitors', label: '행정/학습용 모니터' },
     { key: 'network_ap', label: '학급 무선 AP (Wi-Fi 6)' },
     { key: 'server', label: '학내망 백업/보안 서버' },
+    { key: 'digital_camera', label: '디지털카메라' },
     { key: 'etc', label: '기타 기자재' }
   ];
 

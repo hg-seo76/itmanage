@@ -358,6 +358,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 <option value="monitors">업무/학습용 모니터</option>
                 <option value="network_ap">학급 무선 AP (Wi-Fi 6)</option>
                 <option value="server">학내망 서버</option>
+                <option value="digital_camera">디지털카메라</option>
                 <option value="etc">기타 기자재</option>
               </select>
             </div>

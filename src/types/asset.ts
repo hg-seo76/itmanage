@@ -7,6 +7,7 @@ export type DeviceCategory =
   | 'monitors' 
   | 'network_ap' 
   | 'server' 
+  | 'digital_camera'
   | 'etc';
 
 export type DisposalStatus = 'none' | 'pending' | 'reviewing' | 'approved' | 'disposed';

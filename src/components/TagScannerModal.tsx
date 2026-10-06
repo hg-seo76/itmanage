@@ -232,6 +232,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     <option value="teacher_laptop">💻 교원 노트북</option>
                     <option value="smart_tablet">📱 태블릿</option>
                     <option value="printer">🖨️ 프린터 / 복합기 / 복사기</option>
+                    <option value="digital_camera">📷 디지털카메라</option>
                     <option value="network_ap">📶 무선 AP</option>
                     <option value="server">🗄️ 서버</option>
                     <option value="etc">📦 기타 기기 (전자칠판, TV 등)</option>
