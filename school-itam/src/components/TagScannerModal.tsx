@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { 
-  Camera, 
+  Image as ImageIcon, 
   Sparkles, 
   CheckCircle2, 
   X, 
@@ -43,7 +43,6 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
   const [editableResult, setEditableResult] = useState<EditableResult | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [rawOcrText, setRawOcrText] = useState<string>('');
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -125,16 +124,16 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30 text-blue-400">
-              <Camera className="w-5 h-5 text-blue-400" />
+              <ImageIcon className="w-5 h-5 text-blue-400" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                <span>사진 촬영 / AI 태그 자동 분석</span>
+                <span>사진으로 추가 / AI 태그 자동 분석</span>
                 <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30">
                   OCR 스캐너
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">스캔 후 잘못된 내용은 직접 수정 가능합니다.</p>
+              <p className="text-xs text-slate-400">사진 등록 후 AI가 자동 분석하며, 잘못된 내용은 직접 수정 가능합니다.</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all">
@@ -145,29 +144,19 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
         {/* Content */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
           
-          {/* Hidden Inputs */}
-          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+          {/* Hidden Input */}
           <input ref={galleryInputRef} type="file" accept="image/png, image/jpeg, image/webp, image/heic" className="hidden" onChange={handleFileChange} />
 
-          {/* Camera & Gallery Buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={isScanning}
-              className="py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Camera className="w-4 h-4" />
-              <span>📸 카메라 촬영</span>
-            </button>
+          {/* Photo File Select Button */}
+          <div>
             <button
               type="button"
               onClick={() => galleryInputRef.current?.click()}
               disabled={isScanning}
-              className="py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span>🖼️ 갤러리 선택</span>
+              <Sparkles className="w-4 h-4 text-cyan-300" />
+              <span>🖼️ 사진 / 이미지 파일 선택</span>
             </button>
           </div>
 
@@ -177,7 +166,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
               {previewImage ? (
                 <>
                   <img src={previewImage} alt="Tag preview" className="h-10 w-14 object-cover rounded-lg border border-slate-700 shrink-0" />
-                  <p className="text-xs text-blue-300 font-semibold">촬영 이미지 선택됨</p>
+                  <p className="text-xs text-blue-300 font-semibold">선택된 사진 이미지</p>
                 </>
               ) : (
                 <p className="text-xs text-slate-500">사진 미선택</p>
