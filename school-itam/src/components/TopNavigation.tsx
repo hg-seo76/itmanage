@@ -1,9 +1,6 @@
 import React from 'react';
 import { 
   Building,
-  Building2, 
-  Tablet, 
-  Printer, 
   Trash2, 
   FileSpreadsheet,
 } from 'lucide-react';
@@ -12,14 +9,12 @@ import type { ViewTab } from '../types/asset';
 interface TopNavigationProps {
   currentTab: ViewTab;
   onSelectTab: (tab: ViewTab) => void;
-  mismatchCount: number;
   totalAssetsCount: number;
 }
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
   currentTab,
   onSelectTab,
-  mismatchCount,
   totalAssetsCount,
 }) => {
   const leftNavItems = [
@@ -29,27 +24,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       icon: Building,
       badge: 'NEW',
       badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-    },
-    {
-      id: 'placement' as ViewTab,
-      label: '교실별 배치 현황',
-      icon: Building2,
-      badge: mismatchCount > 0 ? mismatchCount : undefined,
-      badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-    },
-    {
-      id: 'smart_device' as ViewTab,
-      label: '스마트단말',
-      icon: Tablet,
-      badge: 95,
-      badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-    },
-    {
-      id: 'printer' as ViewTab,
-      label: '프린터 & 토너',
-      icon: Printer,
-      badge: 21,
-      badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
     }
   ];
 

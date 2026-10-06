@@ -7,9 +7,6 @@ import { KpiCards } from './components/KpiCards';
 import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { AssetFormModal } from './components/AssetFormModal';
 import { BuildingMapView } from './components/views/BuildingMapView';
-import { RoomPlacementView } from './components/views/RoomPlacementView';
-import { SmartDeviceView } from './components/views/SmartDeviceView';
-import { PrinterTonerView } from './components/views/PrinterTonerView';
 import { DisposalKanbanView } from './components/views/DisposalKanbanView';
 import { EduReportView } from './components/views/EduReportView';
 import { BulkImportModal } from './components/BulkImportModal';
@@ -164,10 +161,6 @@ const AppContent: React.FC = () => {
     }
   }, [savedSheetUrl]);
 
-  // Total mismatch count across all assets
-  const totalMismatchCount = useMemo(() => {
-    return assets.filter(a => a.isLocationMismatch).length;
-  }, [assets]);
 
   // Filtered Assets based on Search & Mismatch filter
   const filteredAssets = useMemo(() => {
@@ -229,50 +222,6 @@ const AppContent: React.FC = () => {
     await deleteAssetFromFirestore(assetId).catch(err => console.error('Firestore delete failed:', err));
   };
 
-  const handleUpdateAssetLocation = async (assetId: string, newActualLocation: string, newRole: string) => {
-    let updatedAsset: Asset | null = null;
-    setAssets(prev => prev.map(asset => {
-      if (asset.id === assetId) {
-        const isMismatch = asset.ledgerLocation !== newActualLocation;
-        updatedAsset = {
-          ...asset,
-          actualLocation: newActualLocation,
-          assignedRole: newRole,
-          isLocationMismatch: isMismatch,
-          updatedAt: new Date().toISOString().slice(0, 10)
-        };
-        return updatedAsset;
-      }
-      return asset;
-    }));
-
-    if (updatedAsset) {
-      await saveAssetToFirestore(updatedAsset).catch(err => console.error('Firestore update failed:', err));
-    }
-  };
-
-  const handleUpdateToner = async (assetId: string, remainingPercentage: number, stockCount: number) => {
-    let updatedAsset: Asset | null = null;
-    setAssets(prev => prev.map(asset => {
-      if (asset.id === assetId && asset.tonerInfo) {
-        updatedAsset = {
-          ...asset,
-          tonerInfo: {
-            ...asset.tonerInfo,
-            remainingPercentage,
-            stockCount
-          },
-          updatedAt: new Date().toISOString().slice(0, 10)
-        };
-        return updatedAsset;
-      }
-      return asset;
-    }));
-
-    if (updatedAsset) {
-      await saveAssetToFirestore(updatedAsset).catch(err => console.error('Firestore update failed:', err));
-    }
-  };
 
   const handleUpdateDisposalStatus = async (assetId: string, status: DisposalStatus, reason?: string) => {
     let updatedAsset: Asset | null = null;
@@ -395,7 +344,6 @@ const AppContent: React.FC = () => {
             setCurrentTab(tab);
             setShowMismatchOnly(false);
           }}
-          mismatchCount={totalMismatchCount}
           totalAssetsCount={assets.length}
         />
 
@@ -420,28 +368,7 @@ const AppContent: React.FC = () => {
               />
             )}
 
-            {currentTab === 'placement' && (
-              <RoomPlacementView
-                assets={filteredAssets}
-                privacyMode={privacyMode}
-                onUpdateAssetLocation={handleUpdateAssetLocation}
-                onEditAsset={handleOpenEditAssetModal}
-              />
-            )}
 
-            {currentTab === 'smart_device' && (
-              <SmartDeviceView
-                assets={filteredAssets}
-                privacyMode={privacyMode}
-              />
-            )}
-
-            {currentTab === 'printer' && (
-              <PrinterTonerView
-                assets={filteredAssets}
-                onUpdateToner={handleUpdateToner}
-              />
-            )}
 
             {currentTab === 'disposal' && (
               <DisposalKanbanView
