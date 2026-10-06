@@ -5,10 +5,9 @@ import {
   CheckCircle2, 
   X, 
   RefreshCw,
-  Tag,
   Edit3
 } from 'lucide-react';
-import { scanTagImage, parseTagText, type ParsedTagResult } from '../utils/tagOcrParser';
+import { scanTagImage, type ParsedTagResult } from '../utils/tagOcrParser';
 
 interface TagScannerModalProps {
   isOpen: boolean;
