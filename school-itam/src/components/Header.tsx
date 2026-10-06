@@ -5,12 +5,8 @@ import {
   ShieldAlert, 
   Printer, 
   RotateCcw, 
-  FileSpreadsheet,
-  PlusCircle,
-  Table2,
   UserCheck,
-  CloudUpload,
-  Camera
+  CloudUpload
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -21,11 +17,7 @@ interface HeaderProps {
   onTogglePrivacy: () => void;
   onResetData: () => void;
   onPrint: () => void;
-  onOpenGoogleSheetsModal: () => void;
-  onOpenAddAssetModal: () => void;
-  onOpenBulkImportModal: () => void;
   onOpenAuthModal: () => void;
-  onOpenTagScannerModal?: () => void;
   onUploadLocalToCloud?: () => void;
   isCloudSynced?: boolean;
 }
@@ -37,11 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onTogglePrivacy,
   onResetData,
   onPrint,
-  onOpenGoogleSheetsModal,
-  onOpenAddAssetModal,
-  onOpenBulkImportModal,
   onOpenAuthModal,
-  onOpenTagScannerModal,
   onUploadLocalToCloud,
   isCloudSynced = false,
 }) => {
@@ -101,46 +89,8 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Add Asset Button */}
-        <button
-          onClick={onOpenAddAssetModal}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20 transition-all"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>신규 기기 등록</span>
-        </button>
-
-        {/* Camera Add Asset Button */}
-        {onOpenTagScannerModal && (
-          <button
-            onClick={onOpenTagScannerModal}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 transition-all shadow-md shadow-cyan-600/20"
-            title="스마트폰/아이패드 카메라로 물품 태그 라벨을 촬영하거나 사진 선택하여 기기를 추가합니다"
-          >
-            <Camera className="w-4 h-4" />
-            <span>사진으로 추가</span>
-          </button>
-        )}
-
-        {/* Bulk Import Button */}
-        <button
-          onClick={onOpenBulkImportModal}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-violet-600/20 text-violet-300 border border-violet-500/40 hover:bg-violet-600 hover:text-white transition-all shadow-sm"
-          title="CSV 양식 다운로드 후 일괄 등록"
-        >
-          <Table2 className="w-4 h-4" />
-          <span>일괄 등록</span>
-        </button>
-
-        {/* Google Sheets Sync Button */}
-        <button
-          onClick={onOpenGoogleSheetsModal}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-          title="구글 드라이브 스프레드시트 실시간 동기화"
-        >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-          <span>구글 시트 연동</span>
-        </button>
+        {/* 사진으로 추가 / 신규 기기 등록 / 일괄 등록 / 구글 시트 연동 버튼은 헤더에서 제거됨 */}
+        {/* 기능은 유지: onOpenTagScannerModal, onOpenAddAssetModal, onOpenBulkImportModal, onOpenGoogleSheetsModal */}
 
 
         {/* Privacy Mode Toggle */}

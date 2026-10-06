@@ -171,10 +171,6 @@ const AppContent: React.FC = () => {
   }, [assets, searchQuery, showMismatchOnly]);
 
   // Asset CRUD Handlers with Firestore sync
-  const handleOpenAddAssetModal = () => {
-    setAssetToEdit(null);
-    setIsAssetFormModalOpen(true);
-  };
 
   const handleOpenEditAssetModal = (asset: Asset) => {
     setAssetToEdit(asset);
@@ -376,11 +372,7 @@ const AppContent: React.FC = () => {
           onTogglePrivacy={() => setPrivacyMode(prev => !prev)}
           onResetData={handleResetData}
           onPrint={handlePrint}
-          onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-          onOpenAddAssetModal={handleOpenAddAssetModal}
-          onOpenBulkImportModal={() => setIsBulkImportModalOpen(true)}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
-          onOpenTagScannerModal={() => setIsMainTagScannerOpen(true)}
           onUploadLocalToCloud={handleUploadLocalToCloud}
           isCloudSynced={isCloudSynced}
         />
