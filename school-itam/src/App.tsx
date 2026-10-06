@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Asset, ViewTab, DisposalStatus } from './types/asset';
 import { INITIAL_ASSETS } from './data/sanitizedAssets';
-import { TopNavigation } from './components/TopNavigation';
 import { Header } from './components/Header';
 import { KpiCards } from './components/KpiCards';
 import { GoogleSheetsModal } from './components/GoogleSheetsModal';
@@ -162,6 +161,10 @@ const AppContent: React.FC = () => {
   }, [savedSheetUrl]);
 
 
+  const disposalCount = useMemo(() => {
+    return assets.filter(a => a.disposalStatus !== 'none').length;
+  }, [assets]);
+
   // Filtered Assets based on Search & Mismatch filter
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
@@ -321,31 +324,27 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100 font-sans">
-      {/* Sticky Header */}
+      {/* Sticky Header with integrated Navigation */}
       <Header
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          privacyMode={privacyMode}
-          onTogglePrivacy={() => setPrivacyMode(prev => !prev)}
-          onResetData={handleResetData}
-          onPrint={handlePrint}
-          onOpenAuthModal={() => setIsAuthModalOpen(true)}
-          onOpenDbModal={(tab) => {
-            setDbModalTab(tab);
-            setIsDbModalOpen(true);
-          }}
-          isCloudSynced={isCloudSynced}
-        />
-
-        {/* Top Navigation */}
-        <TopNavigation
-          currentTab={currentTab}
-          onSelectTab={(tab) => {
-            setCurrentTab(tab);
-            setShowMismatchOnly(false);
-          }}
-          totalAssetsCount={assets.length}
-        />
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        privacyMode={privacyMode}
+        onTogglePrivacy={() => setPrivacyMode(prev => !prev)}
+        onResetData={handleResetData}
+        onPrint={handlePrint}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenDbModal={(tab) => {
+          setDbModalTab(tab);
+          setIsDbModalOpen(true);
+        }}
+        isCloudSynced={isCloudSynced}
+        currentTab={currentTab}
+        onSelectTab={(tab) => {
+          setCurrentTab(tab);
+          setShowMismatchOnly(false);
+        }}
+        disposalCount={disposalCount}
+      />
 
         {/* Content Container */}
         <main className="p-8 flex-1 overflow-y-auto">

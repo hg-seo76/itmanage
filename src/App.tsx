@@ -1,19 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Asset, ViewTab, DisposalStatus } from './types/asset';
 import { INITIAL_ASSETS } from './data/sanitizedAssets';
-import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { KpiCards } from './components/KpiCards';
 import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { AssetFormModal } from './components/AssetFormModal';
 import { BuildingMapView } from './components/views/BuildingMapView';
-import { RoomPlacementView } from './components/views/RoomPlacementView';
-import { SmartDeviceView } from './components/views/SmartDeviceView';
-import { PrinterTonerView } from './components/views/PrinterTonerView';
 import { DisposalKanbanView } from './components/views/DisposalKanbanView';
 import { EduReportView } from './components/views/EduReportView';
 import { BulkImportModal } from './components/BulkImportModal';
 import { AuthModal } from './components/AuthModal';
+import { DbBackupRestoreModal } from './components/DbBackupRestoreModal';
 import { LoginScreen } from './components/LoginScreen';
 import { TagScannerModal } from './components/TagScannerModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -22,7 +19,8 @@ import {
   subscribeToFirestoreAssets, 
   saveAssetToFirestore, 
   deleteAssetFromFirestore, 
-  batchSaveAssetsToFirestore 
+  batchSaveAssetsToFirestore,
+  fetchAssetsFromFirestore
 } from './services/firestoreAssets';
 
 const STORAGE_KEY_ASSETS = 'school_itam_assets_v2';
@@ -58,6 +56,8 @@ const AppContent: React.FC = () => {
   const [assetToEdit, setAssetToEdit] = useState<Asset | null>(null);
   const [assetModalInitialData, setAssetModalInitialData] = useState<{ location?: string; assignedRole?: string } | null>(null);
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+  const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
+  const [dbModalTab, setDbModalTab] = useState<'backup' | 'restore'>('backup');
 
   const handleOpenRegisterModalForMember = (location: string, assignedRole: string) => {
     setAssetToEdit(null);
@@ -78,7 +78,6 @@ const AppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<ViewTab>('building_map');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showMismatchOnly, setShowMismatchOnly] = useState<boolean>(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   // Firestore Realtime Subscription (If Firebase is configured & user logged in or active)
   useEffect(() => {
@@ -110,19 +109,40 @@ const AppContent: React.FC = () => {
     return () => unsubscribe();
   }, [isFirebaseConfigured]);
 
-  const handleUploadLocalToCloud = async () => {
+  const handleCloudBackup = async () => {
     if (!isFirebaseConfigured) {
-      alert('Firebase 클라우드가 연동되어 있지 않습니다.');
-      return;
+      throw new Error('Firebase 클라우드가 연동되어 있지 않습니다.');
     }
-    try {
-      await batchSaveAssetsToFirestore(assets);
+    await batchSaveAssetsToFirestore(assets);
+    setIsCloudSynced(true);
+  };
+
+  const handleCloudRestore = async () => {
+    if (!isFirebaseConfigured) {
+      throw new Error('Firebase 클라우드가 연동되어 있지 않습니다.');
+    }
+    const fetchedAssets = await fetchAssetsFromFirestore();
+    if (fetchedAssets.length > 0) {
+      setAssets(fetchedAssets);
       setIsCloudSynced(true);
-      alert(`성공! 현재 로컬 브라우저 자산 ${assets.length}건이 파이어베이스 클라우드로 동기화 업로드되었습니다.`);
-    } catch (err: any) {
-      console.error(err);
-      alert('클라우드 동기화 실패: ' + (err.message || '알 수 없는 오류'));
+    } else {
+      throw new Error('클라우드에 저장된 데이터가 없습니다.');
     }
+  };
+
+  const handleFileBackup = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(assets, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `school_itam_backup_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(downloadAnchor); // Required for Firefox
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleFileRestore = (importedAssets: Asset[]) => {
+    setAssets(importedAssets);
+    // If firebase is configured, it will auto-sync on change or via next sync
   };
 
   // Sync to LocalStorage
@@ -140,9 +160,9 @@ const AppContent: React.FC = () => {
     }
   }, [savedSheetUrl]);
 
-  // Total mismatch count across all assets
-  const totalMismatchCount = useMemo(() => {
-    return assets.filter(a => a.isLocationMismatch).length;
+
+  const disposalCount = useMemo(() => {
+    return assets.filter(a => a.disposalStatus !== 'none').length;
   }, [assets]);
 
   // Filtered Assets based on Search & Mismatch filter
@@ -171,10 +191,6 @@ const AppContent: React.FC = () => {
   }, [assets, searchQuery, showMismatchOnly]);
 
   // Asset CRUD Handlers with Firestore sync
-  const handleOpenAddAssetModal = () => {
-    setAssetToEdit(null);
-    setIsAssetFormModalOpen(true);
-  };
 
   const handleOpenEditAssetModal = (asset: Asset) => {
     setAssetToEdit(asset);
@@ -209,50 +225,6 @@ const AppContent: React.FC = () => {
     await deleteAssetFromFirestore(assetId).catch(err => console.error('Firestore delete failed:', err));
   };
 
-  const handleUpdateAssetLocation = async (assetId: string, newActualLocation: string, newRole: string) => {
-    let updatedAsset: Asset | null = null;
-    setAssets(prev => prev.map(asset => {
-      if (asset.id === assetId) {
-        const isMismatch = asset.ledgerLocation !== newActualLocation;
-        updatedAsset = {
-          ...asset,
-          actualLocation: newActualLocation,
-          assignedRole: newRole,
-          isLocationMismatch: isMismatch,
-          updatedAt: new Date().toISOString().slice(0, 10)
-        };
-        return updatedAsset;
-      }
-      return asset;
-    }));
-
-    if (updatedAsset) {
-      await saveAssetToFirestore(updatedAsset).catch(err => console.error('Firestore update failed:', err));
-    }
-  };
-
-  const handleUpdateToner = async (assetId: string, remainingPercentage: number, stockCount: number) => {
-    let updatedAsset: Asset | null = null;
-    setAssets(prev => prev.map(asset => {
-      if (asset.id === assetId && asset.tonerInfo) {
-        updatedAsset = {
-          ...asset,
-          tonerInfo: {
-            ...asset.tonerInfo,
-            remainingPercentage,
-            stockCount
-          },
-          updatedAt: new Date().toISOString().slice(0, 10)
-        };
-        return updatedAsset;
-      }
-      return asset;
-    }));
-
-    if (updatedAsset) {
-      await saveAssetToFirestore(updatedAsset).catch(err => console.error('Firestore update failed:', err));
-    }
-  };
 
   const handleUpdateDisposalStatus = async (assetId: string, status: DisposalStatus, reason?: string) => {
     let updatedAsset: Asset | null = null;
@@ -351,39 +323,28 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex text-slate-100 font-sans">
-      {/* Sidebar Navigation */}
-      <Sidebar
+    <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100 font-sans">
+      {/* Sticky Header with integrated Navigation */}
+      <Header
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        privacyMode={privacyMode}
+        onTogglePrivacy={() => setPrivacyMode(prev => !prev)}
+        onResetData={handleResetData}
+        onPrint={handlePrint}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenDbModal={(tab) => {
+          setDbModalTab(tab);
+          setIsDbModalOpen(true);
+        }}
+        isCloudSynced={isCloudSynced}
         currentTab={currentTab}
         onSelectTab={(tab) => {
           setCurrentTab(tab);
           setShowMismatchOnly(false);
         }}
-        privacyMode={privacyMode}
-        mismatchCount={totalMismatchCount}
-        totalAssetsCount={assets.length}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
+        disposalCount={disposalCount}
       />
-
-      {/* Main Layout */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Sticky Header */}
-        <Header
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          privacyMode={privacyMode}
-          onTogglePrivacy={() => setPrivacyMode(prev => !prev)}
-          onResetData={handleResetData}
-          onPrint={handlePrint}
-          onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-          onOpenAddAssetModal={handleOpenAddAssetModal}
-          onOpenBulkImportModal={() => setIsBulkImportModalOpen(true)}
-          onOpenAuthModal={() => setIsAuthModalOpen(true)}
-          onOpenTagScannerModal={() => setIsMainTagScannerOpen(true)}
-          onUploadLocalToCloud={handleUploadLocalToCloud}
-          isCloudSynced={isCloudSynced}
-        />
 
         {/* Content Container */}
         <main className="p-8 flex-1 overflow-y-auto">
@@ -406,28 +367,7 @@ const AppContent: React.FC = () => {
               />
             )}
 
-            {currentTab === 'placement' && (
-              <RoomPlacementView
-                assets={filteredAssets}
-                privacyMode={privacyMode}
-                onUpdateAssetLocation={handleUpdateAssetLocation}
-                onEditAsset={handleOpenEditAssetModal}
-              />
-            )}
 
-            {currentTab === 'smart_device' && (
-              <SmartDeviceView
-                assets={filteredAssets}
-                privacyMode={privacyMode}
-              />
-            )}
-
-            {currentTab === 'printer' && (
-              <PrinterTonerView
-                assets={filteredAssets}
-                onUpdateToner={handleUpdateToner}
-              />
-            )}
 
             {currentTab === 'disposal' && (
               <DisposalKanbanView
@@ -444,7 +384,6 @@ const AppContent: React.FC = () => {
             )}
           </div>
         </main>
-      </div>
 
       {/* Google Sheets Sync Modal */}
       <GoogleSheetsModal
@@ -492,6 +431,19 @@ const AppContent: React.FC = () => {
         isOpen={isMainTagScannerOpen}
         onClose={() => setIsMainTagScannerOpen(false)}
         onApplyParsedData={handleApplyMainTagData}
+      />
+
+      {/* DB Backup & Restore Modal */}
+      <DbBackupRestoreModal
+        isOpen={isDbModalOpen}
+        onClose={() => setIsDbModalOpen(false)}
+        initialTab={dbModalTab}
+        currentAssetsCount={assets.length}
+        onCloudBackup={handleCloudBackup}
+        onCloudRestore={handleCloudRestore}
+        onFileBackup={handleFileBackup}
+        onFileRestore={handleFileRestore}
+        isFirebaseConfigured={isFirebaseConfigured}
       />
     </div>
   );

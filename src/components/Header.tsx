@@ -5,14 +5,15 @@ import {
   ShieldAlert, 
   Printer, 
   RotateCcw, 
-  FileSpreadsheet,
-  PlusCircle,
-  Table2,
   UserCheck,
-  CloudUpload,
-  Camera
+  Download,
+  Upload,
+  Building,
+  Trash2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import type { ViewTab } from '../types/asset';
 
 interface HeaderProps {
   searchQuery: string;
@@ -21,13 +22,12 @@ interface HeaderProps {
   onTogglePrivacy: () => void;
   onResetData: () => void;
   onPrint: () => void;
-  onOpenGoogleSheetsModal: () => void;
-  onOpenAddAssetModal: () => void;
-  onOpenBulkImportModal: () => void;
   onOpenAuthModal: () => void;
-  onOpenTagScannerModal?: () => void;
-  onUploadLocalToCloud?: () => void;
+  onOpenDbModal?: (tab: 'backup' | 'restore') => void;
   isCloudSynced?: boolean;
+  currentTab?: ViewTab;
+  onSelectTab?: (tab: ViewTab) => void;
+  disposalCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,35 +37,87 @@ export const Header: React.FC<HeaderProps> = ({
   onTogglePrivacy,
   onResetData,
   onPrint,
-  onOpenGoogleSheetsModal,
-  onOpenAddAssetModal,
-  onOpenBulkImportModal,
   onOpenAuthModal,
-  onOpenTagScannerModal,
-  onUploadLocalToCloud,
+  onOpenDbModal,
   isCloudSynced = false,
+  currentTab,
+  onSelectTab,
+  disposalCount = 21,
 }) => {
   const { userEmail, isAuthenticated } = useAuth();
 
   return (
     <header className="h-20 bg-slate-900/60 border-b border-slate-800 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 no-print">
-      {/* Search Bar */}
-      <div className="relative w-80">
-        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="자산번호, 기종명, 위치, 직책 역할명 검색..."
-          className="w-full bg-slate-950/70 border border-slate-700/60 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => onSearchChange('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-200"
-          >
-            Clear
-          </button>
+      {/* Left: Search Bar & Navigation Tabs */}
+      <div className="flex items-center gap-6">
+        {/* Search Bar */}
+        <div className="relative w-72">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="자산번호, 기종명, 위치, 직책 역할명 검색..."
+            className="w-full bg-slate-950/70 border border-slate-700/60 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-200"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Top Navigation Tabs */}
+        {currentTab && onSelectTab && (
+          <nav className="flex items-center gap-2">
+            {/* 건물별 배치도 */}
+            <button
+              onClick={() => onSelectTab('building_map')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                currentTab === 'building_map'
+                  ? 'bg-blue-600/20 text-blue-300 border-blue-500/50 shadow-sm shadow-blue-500/10'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border-slate-800'
+              }`}
+            >
+              <Building className="w-4 h-4 text-blue-400" />
+              <span>건물별 배치도</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                NEW
+              </span>
+            </button>
+
+            {/* 불용 / 폐기 */}
+            <button
+              onClick={() => onSelectTab('disposal')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                currentTab === 'disposal'
+                  ? 'bg-purple-600 text-white border-transparent shadow-md shadow-purple-600/20'
+                  : 'bg-purple-600/20 text-purple-300 border-purple-500/40 hover:bg-purple-600/30 hover:text-white'
+              }`}
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>불용 / 폐기</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-900/60 text-purple-200 border border-purple-400/30">
+                {disposalCount}
+              </span>
+            </button>
+
+            {/* 교육청 통계 제출 */}
+            <button
+              onClick={() => onSelectTab('report')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                currentTab === 'report'
+                  ? 'bg-indigo-600 text-white border-transparent shadow-md shadow-indigo-600/20'
+                  : 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600/30 hover:text-white'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>교육청 통계 제출</span>
+            </button>
+          </nav>
         )}
       </div>
 
@@ -89,58 +141,32 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* DB Cloud Upload Sync Button */}
-        {onUploadLocalToCloud && (
+        {/* DB Backup Button */}
+        {onOpenDbModal && (
           <button
-            onClick={onUploadLocalToCloud}
+            onClick={() => onOpenDbModal('backup')}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-            title="현재 브라우저에 저장된 자산 데이터를 파이어베이스 클라우드로 일괄 동기화합니다."
+            title="데이터베이스 백업 (클라우드/로컬)"
           >
-            <CloudUpload className="w-4 h-4 text-emerald-400" />
-            <span>DB 클라우드 동기화</span>
+            <Download className="w-4 h-4" />
+            <span>DB 백업</span>
           </button>
         )}
 
-        {/* Add Asset Button */}
-        <button
-          onClick={onOpenAddAssetModal}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20 transition-all"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>신규 기기 등록</span>
-        </button>
-
-        {/* Camera Add Asset Button */}
-        {onOpenTagScannerModal && (
+        {/* DB Restore Button */}
+        {onOpenDbModal && (
           <button
-            onClick={onOpenTagScannerModal}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 transition-all shadow-md shadow-cyan-600/20"
-            title="스마트폰/아이패드 카메라로 물품 태그 라벨을 촬영하거나 사진 선택하여 기기를 추가합니다"
+            onClick={() => onOpenDbModal('restore')}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-blue-600/20 text-blue-300 border border-blue-500/40 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+            title="데이터베이스 복원 (클라우드/로컬)"
           >
-            <Camera className="w-4 h-4" />
-            <span>사진으로 추가</span>
+            <Upload className="w-4 h-4" />
+            <span>DB 복원</span>
           </button>
         )}
 
-        {/* Bulk Import Button */}
-        <button
-          onClick={onOpenBulkImportModal}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-violet-600/20 text-violet-300 border border-violet-500/40 hover:bg-violet-600 hover:text-white transition-all shadow-sm"
-          title="CSV 양식 다운로드 후 일괄 등록"
-        >
-          <Table2 className="w-4 h-4" />
-          <span>일괄 등록</span>
-        </button>
-
-        {/* Google Sheets Sync Button */}
-        <button
-          onClick={onOpenGoogleSheetsModal}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-          title="구글 드라이브 스프레드시트 실시간 동기화"
-        >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-          <span>구글 시트 연동</span>
-        </button>
+        {/* 사진으로 추가 / 신규 기기 등록 / 일괄 등록 / 구글 시트 연동 버튼은 헤더에서 제거됨 */}
+        {/* 기능은 유지: onOpenTagScannerModal, onOpenAddAssetModal, onOpenBulkImportModal, onOpenGoogleSheetsModal */}
 
 
         {/* Privacy Mode Toggle */}
