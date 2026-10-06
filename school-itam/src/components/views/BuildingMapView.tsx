@@ -5,7 +5,6 @@ import {
   Tablet,
   Laptop,
   Printer,
-  Server,
   Monitor,
   AlertTriangle,
   CheckCircle2,
@@ -29,7 +28,7 @@ import {
   Copy,
   Presentation,
 } from 'lucide-react';
-import type { Asset, DeviceCategory } from '../../types/asset';
+import type { Asset } from '../../types/asset';
 
 interface MemberConfig {
   id: string;
