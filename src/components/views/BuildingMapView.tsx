@@ -251,6 +251,25 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
 
   const [newMemberNameInput, setNewMemberNameInput] = useState('');
 
+  // 구성원 이름 수정 모달 상태
+  const [editMemberModal, setEditMemberModal] = useState<{
+    isOpen: boolean;
+    floor: number;
+    roomId: string;
+    roomName: string;
+    memberId: string;
+    oldName: string;
+  }>({
+    isOpen: false,
+    floor: 1,
+    roomId: '',
+    roomName: '',
+    memberId: '',
+    oldName: ''
+  });
+
+  const [editMemberNameInput, setEditMemberNameInput] = useState('');
+
   // 층/구성원 설정 저장
   const saveLayout = (newConfig: FloorConfig[]) => {
     setBuildingConfig(newConfig);
@@ -317,6 +336,44 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
     });
 
     saveLayout(newConfig);
+  };
+
+  // 구성원 이름 수정 제출
+  const handleEditMemberSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newName = editMemberNameInput.trim();
+    if (!newName) return;
+
+    const { floor, roomId, memberId } = editMemberModal;
+
+    const newConfig = buildingConfig.map(f => {
+      if (f.floor !== floor) return f;
+      return {
+        ...f,
+        rooms: f.rooms.map(r => {
+          if (r.id !== roomId) return r;
+          const updatedKeywords = r.assetKeywords.includes(newName)
+            ? r.assetKeywords
+            : [...r.assetKeywords, newName];
+          return {
+            ...r,
+            members: r.members.map(m => {
+              if (m.id !== memberId) return m;
+              return {
+                ...m,
+                name: newName,
+                role: newName
+              };
+            }),
+            assetKeywords: updatedKeywords
+          };
+        })
+      };
+    });
+
+    saveLayout(newConfig);
+    setEditMemberModal({ isOpen: false, floor: 1, roomId: '', roomName: '', memberId: '', oldName: '' });
+    setEditMemberNameInput('');
   };
 
 
@@ -854,10 +911,26 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                               className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/60 space-y-1.5 group/member"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-semibold text-indigo-300 flex items-center gap-1">
-                                  <UserCheck className="w-3 h-3 text-indigo-400" />
-                                  {privacyMode ? member.role : member.name}
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditMemberModal({
+                                      isOpen: true,
+                                      floor: floor.floor,
+                                      roomId: room.id,
+                                      roomName: room.name,
+                                      memberId: member.id,
+                                      oldName: member.name
+                                    });
+                                    setEditMemberNameInput(member.name);
+                                  }}
+                                  className="text-[11px] font-semibold text-indigo-300 hover:text-indigo-100 flex items-center gap-1 transition-colors text-left group/editName"
+                                  title="클릭하여 구성원 이름 수정"
+                                >
+                                  <UserCheck className="w-3 h-3 text-indigo-400 group-hover/editName:text-indigo-300" />
+                                  <span>{privacyMode ? member.role : member.name}</span>
+                                  <Edit3 className="w-2.5 h-2.5 text-indigo-400/60 opacity-0 group-hover/editName:opacity-100 transition-opacity ml-0.5" />
+                                </button>
 
                                 <div className="flex items-center gap-1">
                                   <span className="text-[10px] text-slate-500 mr-1">{memAssets.length}대</span>
@@ -873,6 +946,26 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                                       기기 등록
                                     </button>
                                   )}
+
+                                  {/* 구성원 이름 수정 버튼 */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditMemberModal({
+                                        isOpen: true,
+                                        floor: floor.floor,
+                                        roomId: room.id,
+                                        roomName: room.name,
+                                        memberId: member.id,
+                                        oldName: member.name
+                                      });
+                                      setEditMemberNameInput(member.name);
+                                    }}
+                                    className="p-1 rounded text-slate-500 hover:text-indigo-300 hover:bg-indigo-500/20 transition-all opacity-60 group-hover/member:opacity-100"
+                                    title="구성원 이름 수정"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                  </button>
 
                                   {/* 구성원 삭제 버튼 */}
                                   <button
@@ -1257,6 +1350,65 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                 >
                   <Plus className="w-4 h-4" />
                   구성원 추가하기
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ──────────────────────────────────────────
+          구성원 이름 수정 모달
+      ────────────────────────────────────────── */}
+      {editMemberModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-2 text-indigo-400 font-bold">
+                <Edit3 className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-100">
+                  [{editMemberModal.roomName}] 구성원 이름 수정
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditMemberModal({ isOpen: false, floor: 1, roomId: '', roomName: '', memberId: '', oldName: '' })}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditMemberSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  구성원 명칭 (역할 / 담당 직책)
+                </label>
+                <input
+                  type="text"
+                  value={editMemberNameInput}
+                  onChange={(e) => setEditMemberNameInput(e.target.value)}
+                  placeholder="예: 실장, 초등계장, 유치원교사, 1학년 담임 등"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"
+                  autoFocus
+                />
+                <p className="text-[11px] text-slate-500 mt-2">
+                  * 기존 명칭: <span className="text-indigo-400 font-semibold">{editMemberModal.oldName}</span>
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditMemberModal({ isOpen: false, floor: 1, roomId: '', roomName: '', memberId: '', oldName: '' })}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  수정 완료
                 </button>
               </div>
             </form>
