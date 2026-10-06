@@ -388,7 +388,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               <div className="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
                 <Building2 className="w-6 h-6" />
               </div>
-              정보화기기 건물 배치도 (1층 → 2층 → 3층)
+              정보화 기기 배치도
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               실별 구성원을 자유롭게 추가/삭제하고, 담당자별 맞춤 기기를 즉시 등록 관리하세요.
