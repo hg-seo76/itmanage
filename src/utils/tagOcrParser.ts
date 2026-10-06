@@ -39,13 +39,65 @@ function correctOcrText(text: string): string {
  *   - O(알파벳)과 0(숫자) 혼동 빈번
  */
 export function parseTagText(rawText: string): ParsedTagResult {
+  // 1. 다중 스티커(타 학교 전입 전 구 라벨 + 선장초등학교 현 라벨) 감지 및 타겟팅
+  // 한 기기에 예전 학교(예: 아산공수초등학교) 스티커와 현재 선장초등학교 스티커가 둘 다 붙어있는 경우,
+  // 관리 대상인 "선장초등학교" 라벨 영역을 최우선 타겟으로 분리
+  let targetText = rawText;
+  if (rawText.includes('선장초등학교') && /아산|천안|공수|초등학교/.test(rawText)) {
+    const sunjangIdx = rawText.indexOf('선장초등학교');
+    const startIdx = Math.max(0, rawText.lastIndexOf('분류번호', sunjangIdx));
+    if (startIdx !== -1 && startIdx < sunjangIdx) {
+      targetText = rawText.slice(startIdx);
+    }
+  }
+
   // 1. 전체 텍스트 준비: 줄바꿈을 공백으로, 연속 공백 제거
-  const fullText = rawText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const fullText = targetText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
   // OCR 교정본 (숫자 관련 오인식 보정)
   const corrected = correctOcrText(fullText);
 
   // ─────────────────────────────────────────────
-  // 2. 분류번호 추출 (예: 43211507-25937082)
+  // 2. RFID 태그 및 슬래시 구조 (KKR-GAN-xxx / M0000xxx / 위치) 최우선 추출
+  // 충남 교육청 RFID 정식 라벨 형식: KKR-GAN-0011513160 / MO00004435 / 급식실
+  // ─────────────────────────────────────────────
+  const kkrSlashMatch = corrected.match(
+    /(KKR[-\u2013][A-Z0-9-]+)\s*[\/|]\s*([A-Z0-9]+)\s*[\/|]\s*([가-힣A-Za-z0-9\s()]+)/i
+  );
+  let rfidAssetId = '';
+  let rfidLocation = '';
+  const kkrMatch = corrected.match(/(KKR[-\u2013][A-Z0-9-]+)/i);
+
+  if (kkrSlashMatch) {
+    const rawId = kkrSlashMatch[2].replace(/[Oo]/g, '0');
+    if (/^M\d{5,}/i.test(rawId)) {
+      rfidAssetId = rawId.toUpperCase();
+    }
+    const locCandidate = kkrSlashMatch[3]
+      .replace(/이\s*물품은.*$/i, '')
+      .replace(/※.*$/i, '')
+      .replace(/\(.*?\)/g, '')
+      .trim();
+    if (locCandidate) {
+      rfidLocation = locCandidate;
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 3. 자산번호 추출 (RFID 슬래시 매칭 최우선)
+  // ─────────────────────────────────────────────
+  let assetId = rfidAssetId;
+  if (!assetId) {
+    const mMatch =
+      corrected.match(/\b(M0{4}\d+)\b/i) ||
+      corrected.match(/\b(M\d{7,12})\b/i) ||
+      corrected.match(/\b(M\d{5,})\b/i);
+    assetId = mMatch
+      ? mMatch[1].toUpperCase()
+      : `M0000${Math.floor(Math.random() * 89999 + 10000)}`;
+  }
+
+  // ─────────────────────────────────────────────
+  // 4. 분류번호 추출 (예: 43211507-25937082)
   // ─────────────────────────────────────────────
   const classNoMatch =
     corrected.match(/분류\s*번호\s*[:\s]*([\d-]{10,})/i) ||
@@ -53,12 +105,12 @@ export function parseTagText(rawText: string): ParsedTagResult {
   const classificationNo = classNoMatch ? classNoMatch[1] : undefined;
 
   // ─────────────────────────────────────────────
-  // 3. 취득단가 추출 (예: 1,257,000)
+  // 5. 취득단가 추출 (예: 1,115,690)
   // ─────────────────────────────────────────────
   const priceMatch = corrected.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
   let price = priceMatch ? priceMatch[1] : undefined;
 
-  // OCR이 라벨을 놓치고 "1,257,000 FIL" 처럼 값만 읽었을 경우를 대비한 Fallback (콤마 포함된 숫자 탐색)
+  // OCR이 라벨을 놓치고 "1,115,690 FIL" 처럼 값만 읽었을 경우를 대비한 Fallback (콤마 포함된 숫자 탐색)
   if (!price) {
     const commaNumberMatch = corrected.match(/(?<![\d-])\d{1,3}(,\d{3})+(?![\d-])/);
     if (commaNumberMatch) {
@@ -67,7 +119,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
   }
 
   // ─────────────────────────────────────────────
-  // 4. 취득일자 추출
+  // 6. 취득일자 추출
   // ─────────────────────────────────────────────
   let acquisitionYear = new Date().getFullYear();
   let acquisitionMonth = new Date().getMonth() + 1;
@@ -85,7 +137,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
       foundMonth = parseInt(directDateMatch[2], 10);
     }
 
-    // 우선순위 2: 전체 텍스트에서 4자리 연도 기반의 표준 날짜 형식 탐색 (예: 2020-03-30, 2020-03-30(5))
+    // 우선순위 2: 전체 텍스트에서 4자리 연도 기반의 표준 날짜 형식 탐색 (예: 2020-03-30, 2020-03-30(5), 2017-03-29(5))
     if (!foundYear) {
       const globalYmdMatch = corrected.match(/(?<![\d-])((?:19|20)\d{2})[-./\s](0?[1-9]|1[0-2])[-./\s](\d{1,2})(?![\d-])/);
       if (globalYmdMatch) {
@@ -129,26 +181,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
   })();
 
   // ─────────────────────────────────────────────
-  // 5. 자산번호 추출
-  // OCR이 "MO00005516" 처럼 O를 섞어 읽는 경우가 많으므로
-  // 교정본(corrected)에서 M0000... 패턴 검색
-  // ─────────────────────────────────────────────
-  const mMatch =
-    corrected.match(/\b(M0{4}\d+)\b/i) ||
-    corrected.match(/\b(M\d{7,12})\b/i) ||
-    corrected.match(/\b(M\d{5,})\b/i);
-  const kkrMatch = corrected.match(/(KKR[-\u2013][A-Z0-9-]+)/i);
-
-  const assetId = mMatch
-    ? mMatch[1].toUpperCase()
-    : `M0000${Math.floor(Math.random() * 89999 + 10000)}`;
-
-  // ─────────────────────────────────────────────
-  // 6. 규격명 CSV 파싱 → 품명, 제조사, 모델명 추출
-  //
-  // 학교 스티커 형식:
-  // ─────────────────────────────────────────────
-  // 6. 품명, 규격명 CSV 파싱 → 품명, 제조사, 모델명 추출
+  // 7. 품명, 규격명 CSV 파싱 → 품명, 제조사, 모델명 추출
   //
   // 학교 스티커 형식:
   //   품명 LCD 패널 또는 모니터
@@ -229,40 +262,44 @@ export function parseTagText(rawText: string): ParsedTagResult {
   }
 
   // ─────────────────────────────────────────────
-  // 7. 위치 추출
+  // 8. 위치 추출
   // 비고 행: "KKR-GAN-... / M000005516 / 교무실 / 초등교무센터(2층)"
   // ─────────────────────────────────────────────
-  let location = '';
+  let location = rfidLocation;
 
-  // 비고 행에서 슬래시 구분 위치 탐색
-  const remarkLineMatch = fullText.match(/비\s*고\s*[:\s]*(.+?)(?=취득|분류|품명|규격|※|$)/i);
-  if (remarkLineMatch) {
-    const slashParts = remarkLineMatch[1].split('/').map((p: string) => p.trim());
-    for (const part of slashParts) {
-      if (
-        /\d학년/.test(part) ||
-        /교무실|행정실|과학실|컴퓨터실|도서관|교실|음악|보건|영양|특수|늘봄|영어실|정보실|초등교무/.test(part)
-      ) {
-        location = part.replace(/\(.*?\)/g, '').trim();
-        if (!location) continue; // 괄호만 있는 경우 건너뜀
-        break;
+  // RFID 슬래시에서 위치를 못 찾았을 때 비고 행에서 슬래시 구분 위치 탐색
+  if (!location) {
+    const remarkLineMatch = fullText.match(/비\s*고\s*[:\s]*(.+?)(?=취득|분류|품명|규격|※|$)/i);
+    if (remarkLineMatch) {
+      const slashParts = remarkLineMatch[1].split('/').map((p: string) => p.trim());
+      for (const part of slashParts) {
+        if (
+          /\d학년/.test(part) ||
+          /교무실|행정실|급식실|과학실|컴퓨터실|도서관|교실|음악|보건|영양|특수|늘봄|영어실|정보실|초등교무/.test(part)
+        ) {
+          location = part.replace(/\(.*?\)/g, '').trim();
+          if (!location) continue; // 괄호만 있는 경우 건너뜀
+          break;
+        }
       }
-    }
-    // 슬래시 구분이 없을 때 비고 전체에서 위치 키워드 탐색
-    if (!location) {
-      const allText = remarkLineMatch[1];
-      if (allText.includes('교무실') || allText.includes('초등교무센터')) location = '교무실';
-      else if (allText.includes('행정실')) location = '행정실';
-      else if (/\d학년/.test(allText)) {
-        const gm = allText.match(/(\d학년\s*\d*반?교실?)/);
-        location = gm ? gm[1] : allText.match(/(\d학년)/)?.[1] + '교실' || '';
+      // 슬래시 구분이 없을 때 비고 전체에서 위치 키워드 탐색
+      if (!location) {
+        const allText = remarkLineMatch[1];
+        if (allText.includes('급식실')) location = '급식실';
+        else if (allText.includes('교무실') || allText.includes('초등교무센터')) location = '교무실';
+        else if (allText.includes('행정실')) location = '행정실';
+        else if (/\d학년/.test(allText)) {
+          const gm = allText.match(/(\d학년\s*\d*반?교실?)/);
+          location = gm ? gm[1] : allText.match(/(\d학년)/)?.[1] + '교실' || '';
+        }
       }
     }
   }
 
   // 전체 텍스트 fallback
   if (!location) {
-    if (fullText.includes('교무실') || fullText.includes('초등교무센터')) location = '교무실';
+    if (fullText.includes('급식실')) location = '급식실';
+    else if (fullText.includes('교무실') || fullText.includes('초등교무센터')) location = '교무실';
     else if (fullText.includes('행정실')) location = '행정실';
     else if (fullText.includes('과학실')) location = '과학실';
     else if (fullText.includes('컴퓨터실')) location = '컴퓨터실';
