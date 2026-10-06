@@ -6,7 +6,8 @@ import {
   Printer, 
   RotateCcw, 
   UserCheck,
-  CloudUpload
+  Download,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,7 +19,7 @@ interface HeaderProps {
   onResetData: () => void;
   onPrint: () => void;
   onOpenAuthModal: () => void;
-  onUploadLocalToCloud?: () => void;
+  onOpenDbModal?: (tab: 'backup' | 'restore') => void;
   isCloudSynced?: boolean;
 }
 
@@ -30,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   onResetData,
   onPrint,
   onOpenAuthModal,
-  onUploadLocalToCloud,
+  onOpenDbModal,
   isCloudSynced = false,
 }) => {
   const { userEmail, isAuthenticated } = useAuth();
@@ -77,15 +78,27 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* DB Cloud Upload Sync Button */}
-        {onUploadLocalToCloud && (
+        {/* DB Backup Button */}
+        {onOpenDbModal && (
           <button
-            onClick={onUploadLocalToCloud}
+            onClick={() => onOpenDbModal('backup')}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-            title="현재 브라우저에 저장된 자산 데이터를 파이어베이스 클라우드로 일괄 동기화합니다."
+            title="데이터베이스 백업 (클라우드/로컬)"
           >
-            <CloudUpload className="w-4 h-4 text-emerald-400" />
-            <span>DB 클라우드 동기화</span>
+            <Download className="w-4 h-4" />
+            <span>DB 백업</span>
+          </button>
+        )}
+
+        {/* DB Restore Button */}
+        {onOpenDbModal && (
+          <button
+            onClick={() => onOpenDbModal('restore')}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-blue-600/20 text-blue-300 border border-blue-500/40 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+            title="데이터베이스 복원 (클라우드/로컬)"
+          >
+            <Upload className="w-4 h-4" />
+            <span>DB 복원</span>
           </button>
         )}
 

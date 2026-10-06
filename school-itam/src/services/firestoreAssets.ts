@@ -5,7 +5,8 @@ import {
   deleteDoc, 
   onSnapshot, 
   writeBatch,
-  query
+  query,
+  getDocs
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../config/firebase';
 import type { Asset } from '../types/asset';
@@ -127,3 +128,23 @@ export async function batchSaveAssetsToFirestore(assets: Asset[]): Promise<void>
     throw err;
   }
 }
+
+/**
+ * Firestore에서 모든 자산 목록을 1회성으로 불러옵니다 (복원 용도).
+ */
+export async function fetchAssetsFromFirestore(): Promise<Asset[]> {
+  if (!isFirebaseConfigured || !db) return [];
+  try {
+    const assetsRef = collection(db, COLLECTION_NAME);
+    const snapshot = await getDocs(assetsRef);
+    const assets: Asset[] = [];
+    snapshot.forEach((docSnap) => {
+      assets.push(docSnap.data() as Asset);
+    });
+    return assets;
+  } catch (err: any) {
+    console.error('fetchAssetsFromFirestore failed:', err);
+    throw err;
+  }
+}
+

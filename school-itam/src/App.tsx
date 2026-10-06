@@ -14,6 +14,7 @@ import { DisposalKanbanView } from './components/views/DisposalKanbanView';
 import { EduReportView } from './components/views/EduReportView';
 import { BulkImportModal } from './components/BulkImportModal';
 import { AuthModal } from './components/AuthModal';
+import { DbBackupRestoreModal } from './components/DbBackupRestoreModal';
 import { LoginScreen } from './components/LoginScreen';
 import { TagScannerModal } from './components/TagScannerModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -22,7 +23,8 @@ import {
   subscribeToFirestoreAssets, 
   saveAssetToFirestore, 
   deleteAssetFromFirestore, 
-  batchSaveAssetsToFirestore 
+  batchSaveAssetsToFirestore,
+  fetchAssetsFromFirestore
 } from './services/firestoreAssets';
 
 const STORAGE_KEY_ASSETS = 'school_itam_assets_v2';
@@ -58,6 +60,8 @@ const AppContent: React.FC = () => {
   const [assetToEdit, setAssetToEdit] = useState<Asset | null>(null);
   const [assetModalInitialData, setAssetModalInitialData] = useState<{ location?: string; assignedRole?: string } | null>(null);
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+  const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
+  const [dbModalTab, setDbModalTab] = useState<'backup' | 'restore'>('backup');
 
   const handleOpenRegisterModalForMember = (location: string, assignedRole: string) => {
     setAssetToEdit(null);
@@ -110,19 +114,40 @@ const AppContent: React.FC = () => {
     return () => unsubscribe();
   }, [isFirebaseConfigured]);
 
-  const handleUploadLocalToCloud = async () => {
+  const handleCloudBackup = async () => {
     if (!isFirebaseConfigured) {
-      alert('Firebase 클라우드가 연동되어 있지 않습니다.');
-      return;
+      throw new Error('Firebase 클라우드가 연동되어 있지 않습니다.');
     }
-    try {
-      await batchSaveAssetsToFirestore(assets);
+    await batchSaveAssetsToFirestore(assets);
+    setIsCloudSynced(true);
+  };
+
+  const handleCloudRestore = async () => {
+    if (!isFirebaseConfigured) {
+      throw new Error('Firebase 클라우드가 연동되어 있지 않습니다.');
+    }
+    const fetchedAssets = await fetchAssetsFromFirestore();
+    if (fetchedAssets.length > 0) {
+      setAssets(fetchedAssets);
       setIsCloudSynced(true);
-      alert(`성공! 현재 로컬 브라우저 자산 ${assets.length}건이 파이어베이스 클라우드로 동기화 업로드되었습니다.`);
-    } catch (err: any) {
-      console.error(err);
-      alert('클라우드 동기화 실패: ' + (err.message || '알 수 없는 오류'));
+    } else {
+      throw new Error('클라우드에 저장된 데이터가 없습니다.');
     }
+  };
+
+  const handleFileBackup = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(assets, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `school_itam_backup_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(downloadAnchor); // Required for Firefox
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleFileRestore = (importedAssets: Asset[]) => {
+    setAssets(importedAssets);
+    // If firebase is configured, it will auto-sync on change or via next sync
   };
 
   // Sync to LocalStorage
@@ -373,7 +398,10 @@ const AppContent: React.FC = () => {
           onResetData={handleResetData}
           onPrint={handlePrint}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
-          onUploadLocalToCloud={handleUploadLocalToCloud}
+          onOpenDbModal={(tab) => {
+            setDbModalTab(tab);
+            setIsDbModalOpen(true);
+          }}
           isCloudSynced={isCloudSynced}
         />
 
@@ -484,6 +512,19 @@ const AppContent: React.FC = () => {
         isOpen={isMainTagScannerOpen}
         onClose={() => setIsMainTagScannerOpen(false)}
         onApplyParsedData={handleApplyMainTagData}
+      />
+
+      {/* DB Backup & Restore Modal */}
+      <DbBackupRestoreModal
+        isOpen={isDbModalOpen}
+        onClose={() => setIsDbModalOpen(false)}
+        initialTab={dbModalTab}
+        currentAssetsCount={assets.length}
+        onCloudBackup={handleCloudBackup}
+        onCloudRestore={handleCloudRestore}
+        onFileBackup={handleFileBackup}
+        onFileRestore={handleFileRestore}
+        isFirebaseConfigured={isFirebaseConfigured}
       />
     </div>
   );
