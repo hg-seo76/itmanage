@@ -364,6 +364,7 @@ const AppContent: React.FC = () => {
                 privacyMode={privacyMode}
                 onRegisterAssetForMember={handleOpenRegisterModalForMember}
                 onEditAsset={handleOpenEditAssetModal}
+                onDeleteAsset={handleDeleteAsset}
               />
             )}
 

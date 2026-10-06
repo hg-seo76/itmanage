@@ -54,6 +54,7 @@ interface BuildingMapViewProps {
   privacyMode: boolean;
   onRegisterAssetForMember?: (location: string, memberRole: string) => void;
   onEditAsset?: (asset: Asset) => void;
+  onDeleteAsset?: (assetId: string) => void;
 }
 
 const DEFAULT_BUILDING_CONFIG: FloorConfig[] = [
@@ -220,7 +221,7 @@ const DEFAULT_BUILDING_CONFIG: FloorConfig[] = [
 
 const LAYOUT_STORAGE_KEY = 'school_itam_custom_building_layout';
 
-export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember, onEditAsset }: BuildingMapViewProps) {
+export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember, onEditAsset, onDeleteAsset }: BuildingMapViewProps) {
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | 'all'>('all');
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -712,6 +713,21 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                                           !불일치
                                         </span>
                                       )}
+                                      {onDeleteAsset && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm(`[${asset.name} (${asset.id})]\n해당 기기를 정말 삭제하시겠습니까?`)) {
+                                              onDeleteAsset(asset.id);
+                                            }
+                                          }}
+                                          className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/20 transition-all opacity-0 group-hover/asset:opacity-100"
+                                          title={`${asset.name} 기기 삭제`}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
                                       <ChevronRight className="w-3 h-3 text-slate-600 group-hover/asset:text-blue-400 transition-colors" />
                                     </div>
                                   </div>
@@ -949,7 +965,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
 
             </div>
 
-            {/* 모달 푸터 (수정 버튼 & 닫기 버튼) */}
+            {/* 모달 푸터 (닫기, 기기 삭제, 수정 버튼) */}
             <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between gap-3">
               <button
                 onClick={() => setSelectedAsset(null)}
@@ -958,19 +974,36 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                 닫기
               </button>
 
-              {onEditAsset && (
-                <button
-                  onClick={() => {
-                    const target = selectedAsset;
-                    setSelectedAsset(null);
-                    onEditAsset(target);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  기기 정보 수정하기
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {onDeleteAsset && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`[${selectedAsset.name} (${selectedAsset.id})]\n해당 기기를 정말 삭제하시겠습니까?`)) {
+                        onDeleteAsset(selectedAsset.id);
+                        setSelectedAsset(null);
+                      }
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    기기 삭제
+                  </button>
+                )}
+
+                {onEditAsset && (
+                  <button
+                    onClick={() => {
+                      const target = selectedAsset;
+                      setSelectedAsset(null);
+                      onEditAsset(target);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    기기 정보 수정하기
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
