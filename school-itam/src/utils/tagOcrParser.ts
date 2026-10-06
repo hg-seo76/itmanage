@@ -56,7 +56,15 @@ export function parseTagText(rawText: string): ParsedTagResult {
   // 3. 취득단가 추출 (예: 1,257,000)
   // ─────────────────────────────────────────────
   const priceMatch = corrected.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
-  const price = priceMatch ? priceMatch[1] : undefined;
+  let price = priceMatch ? priceMatch[1] : undefined;
+
+  // OCR이 라벨을 놓치고 "1,257,000 FIL" 처럼 값만 읽었을 경우를 대비한 Fallback (콤마 포함된 숫자 탐색)
+  if (!price) {
+    const commaNumberMatch = corrected.match(/(?<![\d-])\d{1,3}(,\d{3})+(?![\d-])/);
+    if (commaNumberMatch) {
+      price = commaNumberMatch[0];
+    }
+  }
 
   // ─────────────────────────────────────────────
   // 4. 취득일자 추출
