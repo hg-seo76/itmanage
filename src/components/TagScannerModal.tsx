@@ -144,7 +144,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
           
           {/* Hidden Inputs */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
-          <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <input ref={galleryInputRef} type="file" accept="image/png, image/jpeg, image/webp, image/heic" className="hidden" onChange={handleFileChange} />
 
           {/* Camera & Gallery Buttons */}
           <div className="grid grid-cols-2 gap-3">
