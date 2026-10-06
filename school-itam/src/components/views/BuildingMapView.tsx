@@ -28,7 +28,7 @@ import {
   Copy,
   Presentation,
 } from 'lucide-react';
-import type { Asset } from '../../types/asset';
+import { isAssetInUse, type Asset } from '../../types/asset';
 
 interface MemberConfig {
   id: string;
@@ -226,6 +226,7 @@ const LAYOUT_STORAGE_KEY = 'school_itam_custom_building_layout';
 export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember, onEditAsset, onDeleteAsset }: BuildingMapViewProps) {
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [usageFilter, setUsageFilter] = useState<'all' | 'used' | 'unused'>('all');
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   // 층별/실별 구성원 커스텀 관리 상태
@@ -486,22 +487,35 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
   };
 
   const filteredAssets = useMemo(() => {
-    if (categoryFilter === 'all') return assets;
     return assets.filter(a => {
-      const rank = getDeviceSortRank(a);
-      if (categoryFilter === 'computer') return rank === 1;
-      if (categoryFilter === 'monitor') return rank === 2;
-      if (categoryFilter === 'laptop') return rank === 3;
-      if (categoryFilter === 'tablet') return rank === 4;
-      if (categoryFilter === 'printer') return rank === 5;
-      if (categoryFilter === 'copier') return rank === 6;
-      if (categoryFilter === 'board') return rank === 7;
-      if (categoryFilter === 'tv') return rank === 8;
-      return a.category === categoryFilter;
+      // 1. 카테고리 필터
+      if (categoryFilter !== 'all') {
+        const rank = getDeviceSortRank(a);
+        if (categoryFilter === 'computer' && rank !== 1) return false;
+        if (categoryFilter === 'monitor' && rank !== 2) return false;
+        if (categoryFilter === 'laptop' && rank !== 3) return false;
+        if (categoryFilter === 'tablet' && rank !== 4) return false;
+        if (categoryFilter === 'printer' && rank !== 5) return false;
+        if (categoryFilter === 'copier' && rank !== 6) return false;
+        if (categoryFilter === 'board' && rank !== 7) return false;
+        if (categoryFilter === 'tv' && rank !== 8) return false;
+        if (!['computer','monitor','laptop','tablet','printer','copier','board','tv'].includes(categoryFilter) && a.category !== categoryFilter) {
+          return false;
+        }
+      }
+
+      // 2. 사용 / 미사용 필터
+      if (usageFilter === 'used' && !isAssetInUse(a)) return false;
+      if (usageFilter === 'unused' && isAssetInUse(a)) return false;
+
+      return true;
     });
-  }, [assets, categoryFilter]);
+  }, [assets, categoryFilter, usageFilter]);
 
   const totalCount = filteredAssets.length;
+  const usedCount = useMemo(() => assets.filter(a => isAssetInUse(a)).length, [assets]);
+  const unusedCount = useMemo(() => assets.filter(a => !isAssetInUse(a)).length, [assets]);
+
   const computerCount = assets.filter(a => getDeviceSortRank(a) === 1).length;
   const monitorCount = assets.filter(a => getDeviceSortRank(a) === 2).length;
   const laptopCount = assets.filter(a => getDeviceSortRank(a) === 3).length;
@@ -641,12 +655,50 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
           </div>
         </div>
 
-        {/* Category Filter Buttons */}
+        {/* Filter Controls: Usage Status & Category */}
         <div>
-          <p className="text-xs font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-blue-400" />
-            기기 종류 선택 필터:
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2.5">
+            <p className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-blue-400" />
+              기기 종류 및 사용 구분 필터:
+            </p>
+
+            {/* 사용 / 미사용 빠른 필터 */}
+            <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 self-start sm:self-auto">
+              <button
+                onClick={() => setUsageFilter('all')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  usageFilter === 'all'
+                    ? 'bg-slate-700 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                전체 ({assets.length})
+              </button>
+              <button
+                onClick={() => setUsageFilter('used')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  usageFilter === 'used'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-emerald-400/80 hover:text-emerald-300'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                사용 ({usedCount})
+              </button>
+              <button
+                onClick={() => setUsageFilter('unused')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  usageFilter === 'unused'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-amber-400/80 hover:text-amber-300'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                미사용 ({unusedCount})
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5 no-print">
             {/* 전체 */}
             <button
@@ -989,6 +1041,18 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                                     <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 mr-1">
                                       {getDeviceIcon(asset)}
                                       <span className="font-mono text-blue-300 font-bold shrink-0">{asset.id}</span>
+
+                                      {/* 사용 / 미사용 뱃지 */}
+                                      {isAssetInUse(asset) ? (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                          사용
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                                          미사용
+                                        </span>
+                                      )}
+
                                       <span className="truncate text-slate-300 group-hover/asset:text-slate-100 font-medium">{asset.name}</span>
                                       <span className="font-mono text-emerald-400 text-[10px] bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-800/40 shrink-0">
                                         {asset.credentials?.ipAddress || (asset as any).ipAddress || 'IP미지정'}
@@ -1067,6 +1131,15 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono font-bold text-blue-400">{selectedAsset.id}</span>
+                    {/* 사용 / 미사용 상단 뱃지 표기 */}
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border flex items-center gap-1 shadow-sm ${
+                      isAssetInUse(selectedAsset)
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isAssetInUse(selectedAsset) ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                      {isAssetInUse(selectedAsset) ? '사용 중' : '미사용'}
+                    </span>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                       selectedAsset.status === 'normal'             ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
                       selectedAsset.status === 'repair'             ? 'bg-amber-500/20  text-amber-300  border border-amber-500/30'  :
@@ -1099,6 +1172,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                 </h4>
                 <div className="bg-slate-950/60 rounded-xl border border-slate-800 divide-y divide-slate-800">
                   {[
+                    { label: '사용 구분', value: isAssetInUse(selectedAsset) ? '🟢 정상 사용 중 (배치 완료)' : '🟠 미사용 기기 (유휴 / 보관)' },
                     { label: '기기 종류', value:
                       selectedAsset.category === 'smart_tablet'  ? '스마트 태블릿' :
                       selectedAsset.category === 'smart_laptop'  ? '교육용 노트북' :

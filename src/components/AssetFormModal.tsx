@@ -9,7 +9,7 @@ import {
   UserCheck,
   Camera
 } from 'lucide-react';
-import type { Asset, DeviceCategory } from '../types/asset';
+import { isAssetInUse, type Asset, type DeviceCategory } from '../types/asset';
 import { BUILDING_STRUCTURE } from '../data/buildingLayout';
 import { TagScannerModal } from './TagScannerModal';
 import type { ParsedTagResult } from '../utils/tagOcrParser';
@@ -35,6 +35,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
   const [id, setId] = useState('');
   const [name, setName] = useState('');
+  const [isUsed, setIsUsed] = useState<boolean>(true);
   const [category, setCategory] = useState<DeviceCategory>('desktop_pc');
   const [modelName, setModelName] = useState('');
   const [manufacturer, setManufacturer] = useState('');
@@ -105,6 +106,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     if (assetToEdit) {
       setId(assetToEdit.id);
       setName(assetToEdit.name);
+      setIsUsed(isAssetInUse(assetToEdit));
       setCategory(assetToEdit.category);
       setModelName(assetToEdit.modelName);
       setManufacturer(assetToEdit.manufacturer);
@@ -130,6 +132,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     } else {
       setId(`M0000${Math.floor(Math.random() * 89999 + 10000)}`);
       setName('');
+      setIsUsed(true);
       setCategory('desktop_pc');
       setModelName('');
       setManufacturer('LG전자');
@@ -191,7 +194,10 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       assignedStudentId: assignedStudentId.trim() || undefined,
       chargingCartNo: chargingCartNo.trim() || undefined,
       cabinetNo: cabinetNo.trim() || undefined,
-      status: assetToEdit?.status || 'normal',
+      isUsed,
+      status: isUsed
+        ? (assetToEdit?.status === 'storage' ? 'normal' : (assetToEdit?.status || 'normal'))
+        : 'storage',
       disposalStatus: assetToEdit?.disposalStatus || 'none',
       credentials: {
         ipAddress: formattedIp,
@@ -275,6 +281,51 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 사용 / 미사용 상태 선택 (최상단) */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-100">기기 사용 상태</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  isUsed
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}>
+                  {isUsed ? '● 사용 중' : '○ 미사용 (보관/유휴)'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {isUsed ? '현재 해당 실/구성원에게 배치되어 정상 가동 중인 기기입니다.' : '현재 유휴 기기이거나 보관실에 비치된 미사용 기기입니다.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 p-1 bg-slate-900 rounded-xl border border-slate-700/60 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsUsed(true)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isUsed
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${isUsed ? 'bg-white' : 'bg-emerald-500'}`} />
+                사용
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsUsed(false)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  !isUsed
+                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${!isUsed ? 'bg-white' : 'bg-amber-500'}`} />
+                미사용
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             {/* 자산번호 */}

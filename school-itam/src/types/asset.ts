@@ -47,6 +47,7 @@ export interface Asset {
   
   // 상태 정보
   status: 'normal' | 'repair' | 'storage' | 'disposal_scheduled';
+  isUsed?: boolean;            // 사용 여부 (true: 사용, false: 미사용)
   disposalStatus: DisposalStatus;
   disposalReason?: string;     // 불용사유 (예: 내용연수 초과 및 수리 불가, 성능 저하)
 
@@ -75,4 +76,16 @@ export interface AuditLog {
   action: string;
   operatorRole: string; // Zero-PII 역할명
   details: string;
+}
+
+/**
+ * 기기 사용 여부 판별 헬퍼 (isUsed 플래그 우선, 없으면 status 기반)
+ * true: 사용 중, false: 미사용 (보관/유휴)
+ */
+export function isAssetInUse(asset?: { isUsed?: boolean; status?: string } | null): boolean {
+  if (!asset) return false;
+  if (asset.isUsed !== undefined) {
+    return asset.isUsed;
+  }
+  return asset.status !== 'storage' && asset.status !== 'disposal_scheduled';
 }
