@@ -330,13 +330,13 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
     const model = (asset.modelName || '').toLowerCase();
     const combined = `${name} ${model} ${cat}`;
 
-    // 1. 컴퓨터 (데스크톱, PC 본체)
+    // 1. 컴퓨터 (데스크톱, PC 본체 - 모니터, 노트북, 복사기, 프린터는 제외)
     if (
       cat === 'desktop_pc' ||
       combined.includes('데스크톱') ||
       combined.includes('데스크탑') ||
       combined.includes('본체') ||
-      (combined.includes('컴퓨터') && !combined.includes('노트북'))
+      (combined.includes('컴퓨터') && !combined.includes('노트북') && !combined.includes('모니터') && !combined.includes('lcd'))
     ) {
       return 1;
     }
@@ -377,18 +377,20 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
       return 4;
     }
 
-    // 5. 프린터
+    // 5. 프린터 (복사기/복합기 제외)
     if (
       (cat === 'printer' || combined.includes('프린터') || combined.includes('printer')) &&
-      !combined.includes('복사기') && !combined.includes('복합기')
+      !combined.includes('복사기') && !combined.includes('복합기') && !combined.includes('복사')
     ) {
       return 5;
     }
 
-    // 6. 복사기 (복사기 / 복합기)
+    // 6. 복사기 (복사기 / 전자복사기 / 복합기)
     if (
       combined.includes('복사기') ||
       combined.includes('복합기') ||
+      combined.includes('전자복사기') ||
+      combined.includes('복사') ||
       combined.includes('copier') ||
       combined.includes('스캐너')
     ) {
@@ -885,7 +887,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                               </div>
 
                               <div className="space-y-1">
-                                {memAssets.map(asset => (
+                                {memAssets.slice().sort(sortAssetsByCustomOrder).map(asset => (
                                   <div
                                     key={asset.id}
                                     onClick={() => setSelectedAsset(asset)}
@@ -968,7 +970,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
             <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/95 backdrop-blur">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30">
-                  {getDeviceIcon(selectedAsset.category)}
+                  {getDeviceIcon(selectedAsset)}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
