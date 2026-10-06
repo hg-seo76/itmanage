@@ -8,7 +8,7 @@ import {
   Tag,
   Edit3
 } from 'lucide-react';
-import { scanTagImage, parseTagText, DEMO_SAMPLE_TAG_TEXT, type ParsedTagResult } from '../utils/tagOcrParser';
+import { scanTagImage, parseTagText, type ParsedTagResult } from '../utils/tagOcrParser';
 
 interface TagScannerModalProps {
   isOpen: boolean;
@@ -90,16 +90,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
     }
   };
 
-  const handleRunDemoTag = () => {
-    setIsScanning(true);
-    setPreviewImage(null);
-    setProgressMessage('선장초등학교 물품 태그 분석 중...');
-    setTimeout(() => {
-      const result = parseTagText(DEMO_SAMPLE_TAG_TEXT);
-      applyResultToEditable(result);
-      setIsScanning(false);
-    }, 600);
-  };
+
 
   const handleApply = () => {
     if (parsedResult && editableResult) {
@@ -179,7 +170,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
           {/* Preview & Demo */}
           <div className="flex gap-3">
-            <div className="flex-1 p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
+            <div className="flex-1 p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center gap-3">
               {previewImage ? (
                 <>
                   <img src={previewImage} alt="Tag preview" className="h-10 w-14 object-cover rounded-lg border border-slate-700 shrink-0" />
@@ -189,15 +180,6 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                 <p className="text-xs text-slate-500">사진 미선택</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={handleRunDemoTag}
-              disabled={isScanning}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 shrink-0 flex items-center gap-2 disabled:opacity-50"
-            >
-              <Tag className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-amber-300">샘플 테스트</span>
-            </button>
           </div>
 
           {/* Loading */}

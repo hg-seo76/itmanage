@@ -317,14 +317,4 @@ export async function scanTagImage(
   return parseTagText(text);
 }
 
-/**
- * 사용자가 제공한 실제 선장초등학교 물품 태그 샘플 파싱 데이터 (데모용)
- */
-export const DEMO_SAMPLE_TAG_TEXT = `
-분류 번호 43211507-25563917 취득 단가 1,184,000
-품 명 데스크톱컴퓨터 취득 일자 2025-04-24(5)
-규 격 명 데스크톱컴퓨터, 대우루컴즈, DT367B-346500, Intel Core i5 13400(2.5GHz)
-비 고
-KKR-GAN-0012750156 / M000005496 / 교무실 / 초등교무센터(2층)
-※본 물품은 선장초등학교 자산입니다.
-`;
+
