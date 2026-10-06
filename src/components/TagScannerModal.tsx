@@ -84,8 +84,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
       applyResultToEditable(result);
     } catch (err: any) {
       console.error('OCR Scan Error:', err);
-      const fallbackResult = parseTagText(DEMO_SAMPLE_TAG_TEXT);
-      applyResultToEditable(fallbackResult);
+      alert(err.message || '사진 분석 중 오류가 발생했습니다. (환경 변수 누락 또는 API 오류)');
     } finally {
       setIsScanning(false);
     }
