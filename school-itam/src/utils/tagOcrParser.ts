@@ -1,4 +1,4 @@
-// Tesseract.js removed in favor of Google Cloud Vision API
+// Google Cloud Vision API 기반 태그 파서
 import type { DeviceCategory } from '../types/asset';
 
 export interface ParsedTagResult {
@@ -17,35 +17,56 @@ export interface ParsedTagResult {
 }
 
 /**
- * 물품 스티커 텍스트를 분석하여 자산 필드로 추출하는 인공지능 규칙 파서
+ * OCR 원본 텍스트에서 O↔0 등 오인식 문자를 교정하여 반환
+ */
+function correctOcrText(text: string): string {
+  return text
+    .replace(/[Oo](?=\d)/g, '0')
+    .replace(/(?<=\d)[Oo]/g, '0')
+    .replace(/\bO\b/g, '0')
+    .replace(/[Zz](?=\d{2,3})/g, '2')
+    .replace(/[Ii](?=\d)/g, '1')
+    .replace(/(?<=\d)[Ii]/g, '1');
+}
+
+/**
+ * 물품 스티커 텍스트를 분석하여 자산 필드로 추출하는 파서
+ *
+ * ※ 학교 자산 스티커 OCR 특성:
+ *   - Google Vision이 행 순서와 상관없이 텍스트 블록을 반환
+ *   - "분류 번호", "품명", "규격명", "비 고" 등 레이블이 값과 분리되어 나옴
+ *   - 자산번호(M0000...)가 비고 행의 슬래시 구분 항목에 포함
+ *   - O(알파벳)과 0(숫자) 혼동 빈번
  */
 export function parseTagText(rawText: string): ParsedTagResult {
-  const fullText = rawText.replace(/\s+/g, ' ');
+  // 1. 전체 텍스트 준비: 줄바꿈을 공백으로, 연속 공백 제거
+  const fullText = rawText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+  // OCR 교정본 (숫자 관련 오인식 보정)
+  const corrected = correctOcrText(fullText);
 
-  // 1. 분류번호 추출 (예: 43211507-25563917)
-  const classNoMatch = fullText.match(/분류\s*번호\s*[:\s]*([\d-]+)/i) || fullText.match(/(\d{8}-\d{8})/);
+  // ─────────────────────────────────────────────
+  // 2. 분류번호 추출 (예: 43211507-25937082)
+  // ─────────────────────────────────────────────
+  const classNoMatch =
+    corrected.match(/분류\s*번호\s*[:\s]*([\d-]{10,})/i) ||
+    corrected.match(/(\d{8}-\d{8})/);
   const classificationNo = classNoMatch ? classNoMatch[1] : undefined;
 
-  // 2. 취득단가 추출 (예: 1,184,000)
-  const priceMatch = fullText.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
+  // ─────────────────────────────────────────────
+  // 3. 취득단가 추출 (예: 1,257,000)
+  // ─────────────────────────────────────────────
+  const priceMatch = corrected.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
   const price = priceMatch ? priceMatch[1] : undefined;
 
-  // 3. 취득일자 추출 — OCR 오인식 교정 + 다단계 추출 전략
+  // ─────────────────────────────────────────────
+  // 4. 취득일자 추출
+  // ─────────────────────────────────────────────
   let acquisitionYear = new Date().getFullYear();
   let acquisitionMonth = new Date().getMonth() + 1;
 
   (() => {
-    const corrected = fullText
-      .replace(/[Oo](?=\d)/g, '0')
-      .replace(/(?<=\d)[Oo]/g, '0')
-      .replace(/\bO\b/g, '0')
-      .replace(/[Zz](?=\d{2,3})/g, '2')
-      .replace(/[Ii](?=\d)/g, '1')
-      .replace(/(?<=\d)[Ii]/g, '1')
-      .replace(/[Ss](?=\d)/g, '5')
-      .replace(/[Bb](?=\d)/g, '8');
-
-    const dateContextMatch = corrected.match(/취득\s*일\s*자(.{0,50})/);
+    // "취득 일자" 키워드 이후 텍스트에서 날짜 우선 추출
+    const dateContextMatch = corrected.match(/취득\s*일\s*자\s*(.{0,60})/i);
     const dateContext = dateContextMatch ? dateContextMatch[1] : corrected;
     const numTokens = dateContext.match(/\d+/g) || [];
 
@@ -64,7 +85,6 @@ export function parseTagText(rawText: string): ParsedTagResult {
         }
         break;
       }
-
       if (raw.length === 2 && n >= 20 && n <= 29) {
         foundYear = 2000 + n;
         if (i + 1 < numTokens.length) {
@@ -75,8 +95,9 @@ export function parseTagText(rawText: string): ParsedTagResult {
       }
     }
 
+    // 전체 텍스트에서 20xx-MM-DD 형식 fallback
     if (!foundYear) {
-      const globalMatch = corrected.match(/(20\d{2})\D{0,3}(0?[1-9]|1[0-2])\D{0,3}\d{1,2}/);
+      const globalMatch = corrected.match(/(20\d{2})[-./\s](0?[1-9]|1[0-2])[-./\s](\d{1,2})/);
       if (globalMatch) {
         foundYear = parseInt(globalMatch[1], 10);
         foundMonth = parseInt(globalMatch[2], 10);
@@ -87,79 +108,128 @@ export function parseTagText(rawText: string): ParsedTagResult {
     if (foundMonth) acquisitionMonth = foundMonth;
   })();
 
-  // 4. 품명 추출
-  let name = '';
-  const nameMatch = fullText.match(/품\s*명\s*[:\s]*([^\r\n규분취비]+)/i);
-  if (nameMatch && nameMatch[1].trim()) {
-    name = nameMatch[1].trim();
-  } else if (fullText.includes('데스크톱') || fullText.includes('컴퓨터')) {
-    name = '데스크톱 컴퓨터';
-  } else if (fullText.includes('노트북') || fullText.includes('스마트')) {
-    name = '스마트 노트북';
-  } else if (fullText.includes('태블릿')) {
-    name = '스마트 태블릿';
-  } else if (fullText.includes('프린터') || fullText.includes('복합기')) {
-    name = '프린터';
-  }
+  // ─────────────────────────────────────────────
+  // 5. 자산번호 추출
+  // OCR이 "MO00005516" 처럼 O를 섞어 읽는 경우가 많으므로
+  // 교정본(corrected)에서 M0000... 패턴 검색
+  // ─────────────────────────────────────────────
+  const mMatch =
+    corrected.match(/\b(M0{4}\d+)\b/i) ||
+    corrected.match(/\b(M\d{7,12})\b/i) ||
+    corrected.match(/\b(M\d{5,})\b/i);
+  const kkrMatch = corrected.match(/(KKR[-\u2013][A-Z0-9-]+)/i);
 
-  // 5. 규격명에서 제조사 및 모델명 분리
-  // 형식: "규격명 데스크톱컴퓨터, 라인피아, LP-A8500-165M, AMD 라이젠 8500G(3.5GHz)"
+  const assetId = mMatch
+    ? mMatch[1].toUpperCase()
+    : `M0000${Math.floor(Math.random() * 89999 + 10000)}`;
+
+  // ─────────────────────────────────────────────
+  // 6. 규격명 CSV 파싱 → 품명, 제조사, 모델명 추출
+  //
+  // 학교 스티커 형식:
+  //   규격명 데스크톱컴퓨터, 라인피아, LP-A8500-165M, AMD 라이젠 8500G(3.5GHz)
+  //
+  // OCR이 레이블과 값을 분리해서 읽기 때문에
+  // "규격명" 바로 뒤에 값이 없을 수 있음 → 전체 텍스트에서 CSV 패턴 직접 검색
+  // ─────────────────────────────────────────────
+  let name = '';
   let manufacturer = '';
   let modelName = '';
 
-  const specMatch = fullText.match(/규\s*격\s*명\s*[:\s]*([^\r\n비]+)/i);
-  if (specMatch) {
-    const specStr = specMatch[1].trim();
-    const parts = specStr.split(',').map((p: string) => p.trim());
-    if (parts.length >= 2) {
-      manufacturer = parts[1];
-    }
-    if (parts.length >= 3) {
-      modelName = parts[2];
-    } else if (parts.length >= 1) {
-      modelName = parts[parts.length - 1];
+  // 전략 A: "규격명" 키워드 이후에 콤마 포함 데이터가 있는지 확인
+  const specAfterKeyword = fullText.match(/규\s*격\s*명\s*[:\s]*([^규분취비\r\n]{5,})/i);
+  // 전략 B: 텍스트 어딘가에 있는 "품명, 제조사, 모델명, ..." 형태의 CSV 직접 탐지
+  //   - 첫 항목이 한글 품명 (컴퓨터/태블릿/노트북/프린터 등 키워드)
+  //   - 두 번째 항목이 한글 제조사 이름
+  //   - 세 번째 항목이 영숫자 모델번호
+  const specCsvDirect = fullText.match(
+    /([가-힣]{2,}(?:컴퓨터|태블릿|노트북|프린터|복합기|서버|모니터|스캐너)?)\s*,\s*([가-힣A-Za-z]{2,})\s*,\s*([A-Za-z0-9][A-Za-z0-9\-_.]+)/
+  );
+
+  let specParts: string[] = [];
+
+  if (specAfterKeyword) {
+    const specStr = specAfterKeyword[1].trim();
+    if (specStr.includes(',')) {
+      specParts = specStr.split(',').map((p: string) => p.trim()).filter((p: string) => p.length > 0);
     }
   }
 
-  // 규격명에서 제조사를 못 뽑은 경우에만 키워드로 보완
+  if (specParts.length < 2 && specCsvDirect) {
+    specParts = [specCsvDirect[1].trim(), specCsvDirect[2].trim(), specCsvDirect[3].trim()];
+  }
+
+  if (specParts.length >= 1) {
+    const rawName = specParts[0].trim();
+    // 품명에서 콤마 이전까지만 사용
+    name = rawName.replace(/,.*$/, '').trim();
+  }
+  if (specParts.length >= 2) {
+    manufacturer = specParts[1].trim();
+  }
+  if (specParts.length >= 3) {
+    modelName = specParts[2].trim();
+  }
+
+  // 품명 fallback
+  if (!name) {
+    const nameMatch = fullText.match(/품\s*명\s*[:\s]*([^\r\n규분취비,]+)/i);
+    if (nameMatch && nameMatch[1].trim()) {
+      name = nameMatch[1].trim();
+    } else if (fullText.includes('데스크톱') || fullText.includes('컴퓨터')) {
+      name = '데스크톱컴퓨터';
+    } else if (fullText.includes('노트북')) {
+      name = '노트북';
+    } else if (fullText.includes('태블릿')) {
+      name = '태블릿';
+    } else if (fullText.includes('프린터') || fullText.includes('복합기')) {
+      name = '프린터';
+    }
+  }
+
+  // 제조사 fallback (키워드 감지)
   if (!manufacturer) {
-    if (fullText.includes('대우루컴즈') || fullText.includes('LUCOMS')) manufacturer = '대우루컴즈';
-    else if (fullText.includes('라인피아') || fullText.toLowerCase().includes('linepia')) manufacturer = '라인피아';
+    if (fullText.includes('라인피아') || fullText.toLowerCase().includes('linepia')) manufacturer = '라인피아';
+    else if (fullText.includes('대우루컴즈') || fullText.includes('LUCOMS')) manufacturer = '대우루컴즈';
     else if (fullText.includes('삼성') || fullText.includes('SAMSUNG')) manufacturer = '삼성전자';
     else if (fullText.includes('LG') || fullText.includes('엘지')) manufacturer = 'LG전자';
     else if (fullText.includes('레노버') || fullText.includes('Lenovo')) manufacturer = 'Lenovo';
     else if (fullText.includes('HP')) manufacturer = 'HP';
   }
 
-  // 6. 자산번호 추출 — 비고 행 포함 전체 텍스트에서 M0000... 우선 검색
-  const mMatch = fullText.match(/(M0{4}\d+)/i) || fullText.match(/(M\d{7,10})/i) || fullText.match(/(M\d{5,})/i);
-  const kkrMatch = fullText.match(/(KKR[-\u2013][A-Z0-9-]+)/i);
-
-  const assetId = mMatch ? mMatch[1].toUpperCase() : `M0000${Math.floor(Math.random() * 89999 + 10000)}`;
-
-  // 비고 구성
-  const remarkParts: string[] = [];
-  if (price) remarkParts.push(`취득단가: ${price}원`);
-  if (classificationNo) remarkParts.push(`분류번호: ${classificationNo}`);
-  if (kkrMatch) remarkParts.push(`RFID 태그: ${kkrMatch[1]}`);
-
-  // 7. 위치 추출 — 비고 행 슬래시 구분 항목에서 우선 추출
-  // 예: "KKR-GAN-0012930147 / M000005515 / 6학년교실 / 6학년교실(2층)"
+  // ─────────────────────────────────────────────
+  // 7. 위치 추출
+  // 비고 행: "KKR-GAN-... / M000005516 / 교무실 / 초등교무센터(2층)"
+  // ─────────────────────────────────────────────
   let location = '';
-  const remarkLineMatch = fullText.match(/비\s*고\s*[:\s]*(.+)/i);
+
+  // 비고 행에서 슬래시 구분 위치 탐색
+  const remarkLineMatch = fullText.match(/비\s*고\s*[:\s]*(.+?)(?=취득|분류|품명|규격|※|$)/i);
   if (remarkLineMatch) {
     const slashParts = remarkLineMatch[1].split('/').map((p: string) => p.trim());
     for (const part of slashParts) {
       if (
         /\d학년/.test(part) ||
-        /교무실|행정실|과학실|컴퓨터실|도서관|교실|음악|보건|영양|특수|늘봄|영어실|정보실/.test(part)
+        /교무실|행정실|과학실|컴퓨터실|도서관|교실|음악|보건|영양|특수|늘봄|영어실|정보실|초등교무/.test(part)
       ) {
-        location = part.replace(/\(.*?\)/, '').trim();
+        location = part.replace(/\(.*?\)/g, '').trim();
+        if (!location) continue; // 괄호만 있는 경우 건너뜀
         break;
+      }
+    }
+    // 슬래시 구분이 없을 때 비고 전체에서 위치 키워드 탐색
+    if (!location) {
+      const allText = remarkLineMatch[1];
+      if (allText.includes('교무실') || allText.includes('초등교무센터')) location = '교무실';
+      else if (allText.includes('행정실')) location = '행정실';
+      else if (/\d학년/.test(allText)) {
+        const gm = allText.match(/(\d학년\s*\d*반?교실?)/);
+        location = gm ? gm[1] : allText.match(/(\d학년)/)?.[1] + '교실' || '';
       }
     }
   }
 
+  // 전체 텍스트 fallback
   if (!location) {
     if (fullText.includes('교무실') || fullText.includes('초등교무센터')) location = '교무실';
     else if (fullText.includes('행정실')) location = '행정실';
@@ -167,16 +237,18 @@ export function parseTagText(rawText: string): ParsedTagResult {
     else if (fullText.includes('컴퓨터실')) location = '컴퓨터실';
     else if (fullText.includes('도서관')) location = '도서관';
     else if (/\d학년/.test(fullText)) {
-      const gradeMatch = fullText.match(/(\d학년\s*\d*반?교실?)/);
-      if (gradeMatch) location = gradeMatch[1];
+      const gm = fullText.match(/(\d학년\s*\d*반?교실?)/);
+      if (gm) location = gm[1];
       else {
-        const simpleGrade = fullText.match(/(\d학년)/);
-        if (simpleGrade) location = simpleGrade[1] + '교실';
+        const sg = fullText.match(/(\d학년)/);
+        if (sg) location = sg[1] + '교실';
       }
     }
   }
 
+  // ─────────────────────────────────────────────
   // 8. 카테고리 분류
+  // ─────────────────────────────────────────────
   let category: DeviceCategory = 'desktop_pc';
   const nameLower = (name + fullText).toLowerCase();
   if (nameLower.includes('태블릿') || nameLower.includes('tablet')) {
@@ -193,6 +265,14 @@ export function parseTagText(rawText: string): ParsedTagResult {
     category = 'network_ap';
   }
 
+  // ─────────────────────────────────────────────
+  // 9. 비고 문자열 구성
+  // ─────────────────────────────────────────────
+  const remarkParts: string[] = [];
+  if (price) remarkParts.push(`취득단가: ${price}원`);
+  if (classificationNo) remarkParts.push(`분류번호: ${classificationNo}`);
+  if (kkrMatch) remarkParts.push(`RFID 태그: ${kkrMatch[1]}`);
+
   return {
     assetId,
     name,
@@ -205,12 +285,12 @@ export function parseTagText(rawText: string): ParsedTagResult {
     price,
     classificationNo,
     remarks: remarkParts.length > 0 ? remarkParts.join(' | ') : 'RFID 태그 AI 스캔 자동 등록',
-    rawText
+    rawText,
   };
 }
 
 /**
- * Canvas API를 이용해 이미지를 OCR에 최적화된 형태로 전처리합니다.
+ * Canvas API를 이용해 이미지를 OCR에 최적화된 형태로 전처리
  */
 function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
@@ -260,16 +340,13 @@ function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
   });
 }
 
-/**
- * Canvas를 Base64 (JPEG) 포맷으로 변환
- */
 function canvasToBase64(canvas: HTMLCanvasElement): string {
   const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
   return dataUrl.split(',')[1];
 }
 
 /**
- * 업로드된 이미지 파일에서 Google Cloud Vision API로 텍스트를 인식한 후 파싱.
+ * 이미지 파일 → Google Cloud Vision API → 파싱 결과 반환
  */
 export async function scanTagImage(
   imageFile: File | Blob | string,
@@ -295,10 +372,8 @@ export async function scanTagImage(
 
   const response = await fetch('/api/vision', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ imageBase64: base64Image })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64: base64Image }),
   });
 
   const data = await response.json();
