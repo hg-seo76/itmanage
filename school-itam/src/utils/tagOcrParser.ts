@@ -101,7 +101,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
 
 
   // 4. 품명 추출 (예: 데스크톱컴퓨터)
-  let name = '데스크톱 컴퓨터';
+  let name = '';
   const nameMatch = fullText.match(/품\s*명\s*[:\s]*([^\r\n규분취비]+)/i);
   if (nameMatch && nameMatch[1].trim()) {
     name = nameMatch[1].trim();
@@ -116,8 +116,8 @@ export function parseTagText(rawText: string): ParsedTagResult {
   }
 
   // 5. 규격명에서 제조사 및 모델명 분리 (예: 데스크톱컴퓨터, 대우루컴즈, DT367B-346500, Intel Core i5 13400(2.5GHz))
-  let manufacturer = '대우루컴즈';
-  let modelName = 'DT367B-346500';
+  let manufacturer = '';
+  let modelName = '';
 
   const specMatch = fullText.match(/규\s*격\s*명\s*[:\s]*([^\r\n비]+)/i);
   if (specMatch) {
@@ -153,7 +153,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
   if (kkrMatch) remarkParts.push(`RFID 태그: ${kkrMatch[1]}`);
 
   // 7. 위치 추출 (예: 교무실 / 초등교무센터(2층))
-  let location = '교무실';
+  let location = '';
   if (fullText.includes('교무실') || fullText.includes('초등교무센터')) location = '교무실';
   else if (fullText.includes('행정실')) location = '행정실';
   else if (fullText.includes('과학실')) location = '과학실';
@@ -317,14 +317,4 @@ export async function scanTagImage(
   return parseTagText(text);
 }
 
-/**
- * 사용자가 제공한 실제 선장초등학교 물품 태그 샘플 파싱 데이터 (데모용)
- */
-export const DEMO_SAMPLE_TAG_TEXT = `
-분류 번호 43211507-25563917 취득 단가 1,184,000
-품 명 데스크톱컴퓨터 취득 일자 2025-04-24(5)
-규 격 명 데스크톱컴퓨터, 대우루컴즈, DT367B-346500, Intel Core i5 13400(2.5GHz)
-비 고
-KKR-GAN-0012750156 / M000005496 / 교무실 / 초등교무센터(2층)
-※본 물품은 선장초등학교 자산입니다.
-`;
+

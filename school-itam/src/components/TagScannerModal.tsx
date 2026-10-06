@@ -5,10 +5,9 @@ import {
   CheckCircle2, 
   X, 
   RefreshCw,
-  Tag,
   Edit3
 } from 'lucide-react';
-import { scanTagImage, parseTagText, DEMO_SAMPLE_TAG_TEXT, type ParsedTagResult } from '../utils/tagOcrParser';
+import { scanTagImage, type ParsedTagResult } from '../utils/tagOcrParser';
 
 interface TagScannerModalProps {
   isOpen: boolean;
@@ -84,23 +83,13 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
       applyResultToEditable(result);
     } catch (err: any) {
       console.error('OCR Scan Error:', err);
-      const fallbackResult = parseTagText(DEMO_SAMPLE_TAG_TEXT);
-      applyResultToEditable(fallbackResult);
+      alert(err.message || '사진 분석 중 오류가 발생했습니다. (환경 변수 누락 또는 API 오류)');
     } finally {
       setIsScanning(false);
     }
   };
 
-  const handleRunDemoTag = () => {
-    setIsScanning(true);
-    setPreviewImage(null);
-    setProgressMessage('선장초등학교 물품 태그 분석 중...');
-    setTimeout(() => {
-      const result = parseTagText(DEMO_SAMPLE_TAG_TEXT);
-      applyResultToEditable(result);
-      setIsScanning(false);
-    }, 600);
-  };
+
 
   const handleApply = () => {
     if (parsedResult && editableResult) {
@@ -154,7 +143,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
           
           {/* Hidden Inputs */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
-          <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <input ref={galleryInputRef} type="file" accept="image/png, image/jpeg, image/webp, image/heic" className="hidden" onChange={handleFileChange} />
 
           {/* Camera & Gallery Buttons */}
           <div className="grid grid-cols-2 gap-3">
@@ -180,7 +169,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
           {/* Preview & Demo */}
           <div className="flex gap-3">
-            <div className="flex-1 p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-3">
+            <div className="flex-1 p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center gap-3">
               {previewImage ? (
                 <>
                   <img src={previewImage} alt="Tag preview" className="h-10 w-14 object-cover rounded-lg border border-slate-700 shrink-0" />
@@ -190,15 +179,6 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                 <p className="text-xs text-slate-500">사진 미선택</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={handleRunDemoTag}
-              disabled={isScanning}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 shrink-0 flex items-center gap-2 disabled:opacity-50"
-            >
-              <Tag className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-amber-300">샘플 테스트</span>
-            </button>
           </div>
 
           {/* Loading */}
@@ -230,7 +210,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.assetId}
                     onChange={e => setField('assetId', e.target.value)}
-                    placeholder="M000005496"
+                    placeholder="예: M000012345"
                   />
                 </div>
 
@@ -241,7 +221,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.name}
                     onChange={e => setField('name', e.target.value)}
-                    placeholder="데스크톱 컴퓨터"
+                    placeholder="예: 데스크톱 컴퓨터"
                   />
                 </div>
 
@@ -252,7 +232,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.manufacturer}
                     onChange={e => setField('manufacturer', e.target.value)}
-                    placeholder="대우루컴즈"
+                    placeholder="예: 삼성전자"
                   />
                 </div>
 
@@ -263,7 +243,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.modelName}
                     onChange={e => setField('modelName', e.target.value)}
-                    placeholder="DT367B-346500"
+                    placeholder="예: NT900X"
                   />
                 </div>
 
@@ -301,7 +281,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.location}
                     onChange={e => setField('location', e.target.value)}
-                    placeholder="교무실"
+                    placeholder="예: 교무실"
                   />
                 </div>
 
@@ -312,7 +292,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.price}
                     onChange={e => setField('price', e.target.value)}
-                    placeholder="1,184,000"
+                    placeholder="예: 1,000,000"
                   />
                 </div>
               </div>
