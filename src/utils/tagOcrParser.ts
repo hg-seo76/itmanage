@@ -73,42 +73,54 @@ export function parseTagText(rawText: string): ParsedTagResult {
   let acquisitionMonth = new Date().getMonth() + 1;
 
   (() => {
-    // "취득 일자" 키워드 이후 텍스트에서 날짜 우선 추출
-    const dateContextMatch = corrected.match(/취득\s*일\s*자\s*(.{0,60})/i);
-    const dateContext = dateContextMatch ? dateContextMatch[1] : corrected;
-    const numTokens = dateContext.match(/\d+/g) || [];
-
     let foundYear: number | null = null;
     let foundMonth: number | null = null;
 
-    for (let i = 0; i < numTokens.length; i++) {
-      const n = parseInt(numTokens[i], 10);
-      const raw = numTokens[i];
+    // 우선순위 1: "취득일" 또는 "취득일자" 키워드 직후의 완전한 날짜 형식 (예: 취득일 2020-03-30, 취득일자 2020.03.30, 취득일 2020년 3월)
+    const directDateMatch = corrected.match(
+      /(?:취득\s*일(?:\s*자)?)\s*[:\s]*((?:19|20)\d{2})[-./년\s]+(0?[1-9]|1[0-2])(?:[-./월\s]+(\d{1,2}))?/i
+    );
+    if (directDateMatch) {
+      foundYear = parseInt(directDateMatch[1], 10);
+      foundMonth = parseInt(directDateMatch[2], 10);
+    }
 
-      if (raw.length === 4 && n >= 1990 && n <= 2099) {
-        foundYear = n;
-        if (i + 1 < numTokens.length) {
-          const nextN = parseInt(numTokens[i + 1], 10);
-          if (nextN >= 1 && nextN <= 12) foundMonth = nextN;
-        }
-        break;
-      }
-      if (raw.length === 2 && n >= 20 && n <= 29) {
-        foundYear = 2000 + n;
-        if (i + 1 < numTokens.length) {
-          const nextN = parseInt(numTokens[i + 1], 10);
-          if (nextN >= 1 && nextN <= 12) foundMonth = nextN;
-        }
-        break;
+    // 우선순위 2: 전체 텍스트에서 4자리 연도 기반의 표준 날짜 형식 탐색 (예: 2020-03-30, 2020-03-30(5))
+    if (!foundYear) {
+      const globalYmdMatch = corrected.match(/(?<![\d-])((?:19|20)\d{2})[-./\s](0?[1-9]|1[0-2])[-./\s](\d{1,2})(?![\d-])/);
+      if (globalYmdMatch) {
+        foundYear = parseInt(globalYmdMatch[1], 10);
+        foundMonth = parseInt(globalYmdMatch[2], 10);
       }
     }
 
-    // 전체 텍스트에서 20xx-MM-DD 형식 fallback
+    // 우선순위 3: "취득일" 또는 "취득일자" 컨텍스트(주변 80자 이내)에서 4자리 연도 + 월 토큰 탐색
     if (!foundYear) {
-      const globalMatch = corrected.match(/(20\d{2})[-./\s](0?[1-9]|1[0-2])[-./\s](\d{1,2})/);
-      if (globalMatch) {
-        foundYear = parseInt(globalMatch[1], 10);
-        foundMonth = parseInt(globalMatch[2], 10);
+      const dateContextMatch = corrected.match(/(?:취득\s*일(?:\s*자)?)\s*[:\s]*(.{0,80})/i);
+      const dateContext = dateContextMatch ? dateContextMatch[1] : '';
+      const numTokens = dateContext.match(/\d+/g) || [];
+
+      for (let i = 0; i < numTokens.length; i++) {
+        const n = parseInt(numTokens[i], 10);
+        const raw = numTokens[i];
+
+        if (raw.length === 4 && n >= 1990 && n <= 2099) {
+          foundYear = n;
+          if (i + 1 < numTokens.length) {
+            const nextN = parseInt(numTokens[i + 1], 10);
+            if (nextN >= 1 && nextN <= 12) foundMonth = nextN;
+          }
+          break;
+        }
+      }
+    }
+
+    // 우선순위 4: 전체 텍스트에서 4자리 연도 + 월 (예: 2020년 3월, 2020.03)
+    if (!foundYear) {
+      const ymMatch = corrected.match(/(?<![\d-])((?:19|20)\d{2})[-./년\s]+(0?[1-9]|1[0-2])(?![0-9])/);
+      if (ymMatch) {
+        foundYear = parseInt(ymMatch[1], 10);
+        foundMonth = parseInt(ymMatch[2], 10);
       }
     }
 
