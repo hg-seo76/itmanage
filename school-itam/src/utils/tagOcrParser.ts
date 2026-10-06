@@ -147,25 +147,25 @@ export function parseTagText(rawText: string): ParsedTagResult {
   // 6. 규격명 CSV 파싱 → 품명, 제조사, 모델명 추출
   //
   // 학교 스티커 형식:
-  //   규격명 데스크톱컴퓨터, 라인피아, LP-A8500-165M, AMD 라이젠 8500G(3.5GHz)
+  // ─────────────────────────────────────────────
+  // 6. 품명, 규격명 CSV 파싱 → 품명, 제조사, 모델명 추출
   //
-  // OCR이 레이블과 값을 분리해서 읽기 때문에
-  // "규격명" 바로 뒤에 값이 없을 수 있음 → 전체 텍스트에서 CSV 패턴 직접 검색
+  // 학교 스티커 형식:
+  //   품명 LCD 패널 또는 모니터
+  //   규격명 액정모니터, 다나와컴퓨터. SDM-24LEDJH. 60.8cm
   // ─────────────────────────────────────────────
   let name = '';
   let manufacturer = '';
   let modelName = '';
 
-  // 전략 A: "규격명" 키워드 이후에 콤마 포함 데이터가 있는지 확인
-  const specAfterKeyword = fullText.match(/규\s*격\s*명\s*[:\s]*([^규분취비\r\n]{5,})/i);
-  // 전략 B: 텍스트 어딘가에 있는 "품명, 제조사, 모델명, ..." 형태의 CSV 직접 탐지
-  //   - 첫 항목이 한글 품명 (컴퓨터/태블릿/노트북/프린터 등 키워드)
-  //   - 두 번째 항목이 한글 제조사 이름
-  //   - 세 번째 항목이 영숫자 모델번호
-  const specCsvDirect = fullText.match(
-    /([가-힣]{2,}(?:컴퓨터|태블릿|노트북|프린터|복합기|서버|모니터|스캐너)?)\s*,\s*([가-힣A-Za-z]{2,})\s*,\s*([A-Za-z0-9][A-Za-z0-9\-_.]+)/
-  );
+  // 1) 라벨에 명시된 "품명" 우선 추출 (예: 품명 LCD 패널 또는 모니터, 품명 데스크톱컴퓨터)
+  const explicitNameMatch = fullText.match(/품\s*명\s*[:\s]*([^\r\n규분취비,\t]{2,})/i);
+  if (explicitNameMatch && explicitNameMatch[1].trim()) {
+    name = explicitNameMatch[1].trim();
+  }
 
+  // 2) 규격명 CSV 파싱
+  const specAfterKeyword = fullText.match(/규\s*격\s*명?\s*[:\s]*([^규분취비\r\n]{5,})/i);
   let specParts: string[] = [];
 
   if (specAfterKeyword) {
@@ -173,31 +173,41 @@ export function parseTagText(rawText: string): ParsedTagResult {
     if (specStr.includes(',')) {
       specParts = specStr.split(',').map((p: string) => p.trim()).filter((p: string) => p.length > 0);
     }
+    // 쉼표 분할이 2개 이하이고 점(.)이나 가운뎃점(·)이 포함되어 있다면 점으로도 분할 지원 (OCR이 쉼표를 마침표로 오인식한 경우)
+    if (specParts.length < 3 && /[.·]/.test(specStr)) {
+      const dotParts = specStr.split(/[,.·]\s+/).map((p: string) => p.trim()).filter((p: string) => p.length > 0);
+      if (dotParts.length >= 3) {
+        specParts = dotParts;
+      }
+    }
   }
 
-  if (specParts.length < 2 && specCsvDirect) {
-    specParts = [specCsvDirect[1].trim(), specCsvDirect[2].trim(), specCsvDirect[3].trim()];
+  // 전략 B: 텍스트 어딘가에 있는 "품목, 제조사, 모델명, ..." 형태의 패턴 직접 탐지
+  if (specParts.length < 2) {
+    const specCsvDirect = fullText.match(
+      /([가-힣]{2,}(?:컴퓨터|태블릿|노트북|프린터|복합기|서버|모니터|스캐너)?)\s*[,.·]\s*([가-힣A-Za-z]{2,})\s*[,.·]\s*([A-Za-z0-9][A-Za-z0-9\-_.]+)/
+    );
+    if (specCsvDirect) {
+      specParts = [specCsvDirect[1].trim(), specCsvDirect[2].trim(), specCsvDirect[3].trim()];
+    }
   }
 
-  if (specParts.length >= 1) {
-    const rawName = specParts[0].trim();
-    // 품명에서 콤마 이전까지만 사용
-    name = rawName.replace(/,.*$/, '').trim();
+  if (!name && specParts.length >= 1) {
+    name = specParts[0].replace(/,.*$/, '').trim();
   }
   if (specParts.length >= 2) {
-    manufacturer = specParts[1].trim();
+    manufacturer = specParts[1].replace(/[.]*$/, '').trim();
   }
   if (specParts.length >= 3) {
-    modelName = specParts[2].trim();
+    modelName = specParts[2].replace(/[.]*$/, '').trim();
   }
 
   // 품명 fallback
   if (!name) {
-    const nameMatch = fullText.match(/품\s*명\s*[:\s]*([^\r\n규분취비,]+)/i);
-    if (nameMatch && nameMatch[1].trim()) {
-      name = nameMatch[1].trim();
-    } else if (fullText.includes('데스크톱') || fullText.includes('컴퓨터')) {
+    if (fullText.includes('데스크톱') || fullText.includes('컴퓨터')) {
       name = '데스크톱컴퓨터';
+    } else if (fullText.includes('모니터') || fullText.includes('lcd')) {
+      name = '액정모니터';
     } else if (fullText.includes('노트북')) {
       name = '노트북';
     } else if (fullText.includes('태블릿')) {
@@ -209,7 +219,8 @@ export function parseTagText(rawText: string): ParsedTagResult {
 
   // 제조사 fallback (키워드 감지)
   if (!manufacturer) {
-    if (fullText.includes('라인피아') || fullText.toLowerCase().includes('linepia')) manufacturer = '라인피아';
+    if (fullText.includes('다나와') || fullText.includes('danawa')) manufacturer = '다나와컴퓨터';
+    else if (fullText.includes('라인피아') || fullText.toLowerCase().includes('linepia')) manufacturer = '라인피아';
     else if (fullText.includes('대우루컴즈') || fullText.includes('LUCOMS')) manufacturer = '대우루컴즈';
     else if (fullText.includes('삼성') || fullText.includes('SAMSUNG')) manufacturer = '삼성전자';
     else if (fullText.includes('LG') || fullText.includes('엘지')) manufacturer = 'LG전자';
@@ -267,22 +278,26 @@ export function parseTagText(rawText: string): ParsedTagResult {
   }
 
   // ─────────────────────────────────────────────
-  // 8. 카테고리 분류
+  // 8. 카테고리 분류 (모니터, 컴퓨터, 노트북, 태블릿 등 정밀 분류)
   // ─────────────────────────────────────────────
-  let category: DeviceCategory = 'desktop_pc';
-  const nameLower = (name + fullText).toLowerCase();
-  if (nameLower.includes('태블릿') || nameLower.includes('tablet')) {
+  let category: DeviceCategory = 'etc';
+  const nameLower = (name + ' ' + (specParts[0] || '') + ' ' + fullText).toLowerCase();
+  if (nameLower.includes('태블릿') || nameLower.includes('tablet') || nameLower.includes('아이패드') || nameLower.includes('ipad') || nameLower.includes('갤럭시탭')) {
     category = 'smart_tablet';
   } else if (nameLower.includes('교원') || nameLower.includes('선생님')) {
     category = 'teacher_laptop';
-  } else if (nameLower.includes('노트북') || nameLower.includes('laptop')) {
+  } else if (nameLower.includes('노트북') || nameLower.includes('laptop') || nameLower.includes('씽크패드') || nameLower.includes('thinkpad') || nameLower.includes('그램')) {
     category = 'smart_laptop';
-  } else if (nameLower.includes('프린터') || nameLower.includes('복합기')) {
+  } else if (nameLower.includes('모니터') || nameLower.includes('monitor') || nameLower.includes('lcd') || nameLower.includes('액정') || nameLower.includes('화면')) {
+    category = 'monitors';
+  } else if (nameLower.includes('프린터') || nameLower.includes('printer') || nameLower.includes('복합기') || nameLower.includes('복사기')) {
     category = 'printer';
-  } else if (nameLower.includes('서버')) {
+  } else if (nameLower.includes('서버') || nameLower.includes('server')) {
     category = 'server';
-  } else if (nameLower.includes('ap') || nameLower.includes('와이파이')) {
+  } else if (nameLower.includes('ap') || nameLower.includes('와이파이') || nameLower.includes('공유기')) {
     category = 'network_ap';
+  } else if (nameLower.includes('데스크톱') || nameLower.includes('데스크탑') || nameLower.includes('본체') || nameLower.includes('컴퓨터')) {
+    category = 'desktop_pc';
   }
 
   // ─────────────────────────────────────────────

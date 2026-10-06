@@ -8,6 +8,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { scanTagImage, type ParsedTagResult } from '../utils/tagOcrParser';
+import type { DeviceCategory } from '../types/asset';
 
 interface TagScannerModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface TagScannerModalProps {
 interface EditableResult {
   assetId: string;
   name: string;
+  category: DeviceCategory;
   manufacturer: string;
   modelName: string;
   acquisitionYear: number;
@@ -52,11 +54,12 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
     setEditableResult({
       assetId: result.assetId || '',
       name: result.name || '',
+      category: result.category || 'desktop_pc',
       manufacturer: result.manufacturer || '',
       modelName: result.modelName || '',
       acquisitionYear: result.acquisitionYear || new Date().getFullYear(),
       acquisitionMonth: result.acquisitionMonth || 1,
-      location: result.location || '교무실',
+      location: result.location || '',
       price: result.price || '',
     });
   };
@@ -98,6 +101,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
         ...parsedResult,
         assetId: editableResult.assetId,
         name: editableResult.name,
+        category: editableResult.category,
         manufacturer: editableResult.manufacturer,
         modelName: editableResult.modelName,
         acquisitionYear: Number(editableResult.acquisitionYear),
@@ -215,14 +219,34 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                 </div>
 
                 {/* 품명 */}
-                <div className="col-span-2">
+                <div className="col-span-2 sm:col-span-1">
                   <label className={labelClass}>품 명</label>
                   <input
                     className={inputClass}
                     value={editableResult.name}
                     onChange={e => setField('name', e.target.value)}
-                    placeholder="예: 데스크톱 컴퓨터"
+                    placeholder="예: LCD 패널 또는 모니터"
                   />
+                </div>
+
+                {/* 기기 종류 (카테고리) */}
+                <div className="col-span-2 sm:col-span-1">
+                  <label className={labelClass}>기기 구분 (카테고리)</label>
+                  <select
+                    className={inputClass}
+                    value={editableResult.category}
+                    onChange={e => setField('category', e.target.value as DeviceCategory)}
+                  >
+                    <option value="desktop_pc">🖥️ 데스크톱 컴퓨터</option>
+                    <option value="monitors">🖥️ 모니터 (LCD 패널 / 액정)</option>
+                    <option value="smart_laptop">💻 스마트단말 (노트북)</option>
+                    <option value="teacher_laptop">💻 교원 노트북</option>
+                    <option value="smart_tablet">📱 태블릿</option>
+                    <option value="printer">🖨️ 프린터 / 복합기 / 복사기</option>
+                    <option value="network_ap">📶 무선 AP</option>
+                    <option value="server">🗄️ 서버</option>
+                    <option value="etc">📦 기타 기기 (전자칠판, TV 등)</option>
+                  </select>
                 </div>
 
                 {/* 제조사 */}
