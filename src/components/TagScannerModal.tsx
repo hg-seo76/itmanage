@@ -229,7 +229,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.assetId}
                     onChange={e => setField('assetId', e.target.value)}
-                    placeholder="M000005496"
+                    placeholder="예: M000012345"
                   />
                 </div>
 
@@ -240,7 +240,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.name}
                     onChange={e => setField('name', e.target.value)}
-                    placeholder="데스크톱 컴퓨터"
+                    placeholder="예: 데스크톱 컴퓨터"
                   />
                 </div>
 
@@ -251,7 +251,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.manufacturer}
                     onChange={e => setField('manufacturer', e.target.value)}
-                    placeholder="대우루컴즈"
+                    placeholder="예: 삼성전자"
                   />
                 </div>
 
@@ -262,7 +262,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.modelName}
                     onChange={e => setField('modelName', e.target.value)}
-                    placeholder="DT367B-346500"
+                    placeholder="예: NT900X"
                   />
                 </div>
 
@@ -300,7 +300,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.location}
                     onChange={e => setField('location', e.target.value)}
-                    placeholder="교무실"
+                    placeholder="예: 교무실"
                   />
                 </div>
 
@@ -311,7 +311,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.price}
                     onChange={e => setField('price', e.target.value)}
-                    placeholder="1,184,000"
+                    placeholder="예: 1,000,000"
                   />
                 </div>
               </div>
