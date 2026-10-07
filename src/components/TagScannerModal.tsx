@@ -203,7 +203,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     className={inputClass}
                     value={editableResult.assetId}
                     onChange={e => setField('assetId', e.target.value)}
-                    placeholder="예: M000012345"
+                    placeholder="예: M000012345 (미인식 시 직접 입력 가능)"
                   />
                 </div>
 

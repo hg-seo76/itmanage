@@ -40,13 +40,15 @@ function correctOcrText(text: string): string {
  */
 export function parseTagText(rawText: string): ParsedTagResult {
   // 1. 다중 스티커(타 학교 전입 전 구 라벨 + 선장초등학교 현 라벨) 감지 및 타겟팅
-  // 한 기기에 예전 학교(예: 아산공수초등학교) 스티커와 현재 선장초등학교 스티커가 둘 다 붙어있는 경우,
-  // 관리 대상인 "선장초등학교" 라벨 영역을 최우선 타겟으로 분리
+  // KKR- 또는 선장초등학교 RFID 라벨이 감지되면 해당 영역을 최우선으로 타겟팅
   let targetText = rawText;
-  if (rawText.includes('선장초등학교') && /아산|천안|공수|초등학교/.test(rawText)) {
-    const sunjangIdx = rawText.indexOf('선장초등학교');
-    const startIdx = Math.max(0, rawText.lastIndexOf('분류번호', sunjangIdx));
-    if (startIdx !== -1 && startIdx < sunjangIdx) {
+  if (/선장초|선장|아산\s*선장/.test(rawText) || /KKR[-\u2013]/i.test(rawText)) {
+    const kkrPos = rawText.search(/KKR[-\u2013]/i);
+    const sunjangPos = rawText.search(/선장초등학교|선장초/);
+    const keyPos = kkrPos !== -1 ? kkrPos : sunjangPos;
+    if (keyPos !== -1) {
+      // keyPos 앞의 가장 가까운 "분류번호" 또는 시작점으로 슬라이스
+      const startIdx = Math.max(0, rawText.lastIndexOf('분류번호', keyPos));
       targetText = rawText.slice(startIdx);
     }
   }
@@ -91,9 +93,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
       corrected.match(/\b(M0{4}\d+)\b/i) ||
       corrected.match(/\b(M\d{7,12})\b/i) ||
       corrected.match(/\b(M\d{5,})\b/i);
-    assetId = mMatch
-      ? mMatch[1].toUpperCase()
-      : `M0000${Math.floor(Math.random() * 89999 + 10000)}`;
+    assetId = mMatch ? mMatch[1].toUpperCase() : '';
   }
 
   // ─────────────────────────────────────────────
@@ -105,12 +105,32 @@ export function parseTagText(rawText: string): ParsedTagResult {
   const classificationNo = classNoMatch ? classNoMatch[1] : undefined;
 
   // ─────────────────────────────────────────────
-  // 5. 취득단가 추출 (예: 1,115,690)
+  // 5. 취득단가 & 취득일자 추출 (표 형태 레이아웃 우선 지원)
   // ─────────────────────────────────────────────
-  const priceMatch = corrected.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
-  let price = priceMatch ? priceMatch[1] : undefined;
+  let price: string | undefined = undefined;
+  let acquisitionYear = new Date().getFullYear();
+  let acquisitionMonth = new Date().getMonth() + 1;
 
-  // OCR이 라벨을 놓치고 "1,115,690 FIL" 처럼 값만 읽었을 경우를 대비한 Fallback (콤마 포함된 숫자 탐색)
+  // 패턴 A: 취득단가 취득일자 1,115,690 2017-03-29(5) (스티커 표형식 OCR)
+  const tableHeaderMatch = corrected.match(
+    /취득\s*단가\s*취득\s*일자\s*[:\s]*([\d,]+)\s+((?:19|20)\d{2}[-./년\s]+\d{1,2}(?:[-./월\s]+\d{1,2})?)/i
+  );
+  if (tableHeaderMatch) {
+    price = tableHeaderMatch[1];
+    const dMatch = tableHeaderMatch[2].match(/((?:19|20)\d{2})[-./년\s]+(0?[1-9]|1[0-2])/);
+    if (dMatch) {
+      acquisitionYear = parseInt(dMatch[1], 10);
+      acquisitionMonth = parseInt(dMatch[2], 10);
+    }
+  }
+
+  // 패턴 B: 취득단가 직접 매칭
+  if (!price) {
+    const priceMatch = corrected.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
+    price = priceMatch ? priceMatch[1] : undefined;
+  }
+
+  // Fallback: 콤마 포함된 5자리 이상 숫자 탐색 (예: 1,115,690 또는 125,000)
   if (!price) {
     const commaNumberMatch = corrected.match(/(?<![\d-])\d{1,3}(,\d{3})+(?![\d-])/);
     if (commaNumberMatch) {
@@ -118,17 +138,12 @@ export function parseTagText(rawText: string): ParsedTagResult {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // 6. 취득일자 추출
-  // ─────────────────────────────────────────────
-  let acquisitionYear = new Date().getFullYear();
-  let acquisitionMonth = new Date().getMonth() + 1;
-
+  // 패턴 C: 취득일자 매칭 (패턴 A에서 못 찾았을 경우)
   (() => {
     let foundYear: number | null = null;
     let foundMonth: number | null = null;
 
-    // 우선순위 1: "취득일" 또는 "취득일자" 키워드 직후의 완전한 날짜 형식 (예: 취득일 2020-03-30, 취득일자 2020.03.30, 취득일 2020년 3월)
+    // 우선순위 1: "취득일" 또는 "취득일자" 키워드 직후의 완전한 날짜 형식
     const directDateMatch = corrected.match(
       /(?:취득\s*일(?:\s*자)?)\s*[:\s]*((?:19|20)\d{2})[-./년\s]+(0?[1-9]|1[0-2])(?:[-./월\s]+(\d{1,2}))?/i
     );
@@ -225,14 +240,23 @@ export function parseTagText(rawText: string): ParsedTagResult {
     }
   }
 
-  if (!name && specParts.length >= 1) {
-    name = specParts[0].replace(/,.*$/, '').trim();
-  }
-  if (specParts.length >= 2) {
-    manufacturer = specParts[1].replace(/[.]*$/, '').trim();
-  }
-  if (specParts.length >= 3) {
-    modelName = specParts[2].replace(/[.]*$/, '').trim();
+  const knownMfrPattern = /삼성|LG|엘지|삼보|다나와|레노버|Lenovo|HP|대우루컴즈|루컴즈|라인피아|주연테크|한성|에이서|ASUS|아수스|DELL|델|애플|Apple|캐논|Canon|니콘|Nikon|소니|Sony|신도리코|후지/i;
+
+  if (specParts.length >= 2 && knownMfrPattern.test(specParts[0])) {
+    // 규격명 첫 항목이 이미 제조사인 경우: [제조사, 모델명, ...]
+    if (!manufacturer) manufacturer = specParts[0].replace(/[.]*$/, '').trim();
+    if (!modelName) modelName = specParts[1].replace(/[.]*$/, '').trim();
+  } else {
+    // 표준 규격명: [품목명, 제조사, 모델명, ...]
+    if (!name && specParts.length >= 1) {
+      name = specParts[0].replace(/,.*$/, '').trim();
+    }
+    if (specParts.length >= 2) {
+      manufacturer = specParts[1].replace(/[.]*$/, '').trim();
+    }
+    if (specParts.length >= 3) {
+      modelName = specParts[2].replace(/[.]*$/, '').trim();
+    }
   }
 
   // 품명 fallback
@@ -370,12 +394,13 @@ export function parseTagText(rawText: string): ParsedTagResult {
 
 /**
  * Canvas API를 이용해 이미지를 OCR에 최적화된 형태로 전처리
+ * (원본 색상/디테일을 온전히 보존하면서 전송 용량만 2048px 이하로 안전하게 리사이징)
  */
 function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const MAX_DIM = 2000;
+      const MAX_DIM = 2048;
       let { naturalWidth: w, naturalHeight: h } = img;
       if (w > MAX_DIM || h > MAX_DIM) {
         const scale = MAX_DIM / Math.max(w, h);
@@ -388,31 +413,7 @@ function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
       canvas.height = h;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0, w, h);
-
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const data = imageData.data;
-      const contrast = 60;
-      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        const c = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
-        data[i] = c;
-        data[i + 1] = c;
-        data[i + 2] = c;
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = w;
-      finalCanvas.height = h;
-      const finalCtx = finalCanvas.getContext('2d')!;
-      finalCtx.fillStyle = '#ffffff';
-      finalCtx.fillRect(0, 0, w, h);
-      finalCtx.drawImage(canvas, 0, 0);
-
-      resolve(finalCanvas);
+      resolve(canvas);
     };
     img.onerror = reject;
     img.src = URL.createObjectURL(file as Blob);
@@ -420,7 +421,7 @@ function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
 }
 
 function canvasToBase64(canvas: HTMLCanvasElement): string {
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
   return dataUrl.split(',')[1];
 }
 
