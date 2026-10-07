@@ -27,7 +27,7 @@ export function normalizeM0000Code(str: string): string {
   // 접두사 오인식 (IVI, 1V1, IV, RN 등) 보정
   s = s.replace(/^(?:IVI|IV1|1VI|1V1|RN|rn)(?=[O0oDQ\s\d])/i, 'M');
   if (/^[Mm]/i.test(s)) {
-    const afterM = s.slice(1).replace(/[\s-]/g, '').replace(/[OoDQ]/g, '0');
+    const afterM = s.slice(1).replace(/[\s\-_.]/g, '').replace(/[OoDQ]/g, '0');
     return 'M' + afterM.toUpperCase();
   }
   return s.toUpperCase();
@@ -38,9 +38,9 @@ export function normalizeM0000Code(str: string): string {
  */
 export function findAllM0000Candidates(text: string): string[] {
   if (!text) return [];
-  // M 또는 m 뒤에 O,0,D,Q,공백,하이픈이 3개 이상 오고 숫자가 오는 패턴
+  // M 또는 유사 접두사(IVI, 1V1, IV 등) 뒤에 0, O, D, Q 및 공백/하이픈/점 등이 오고 숫자가 오는 패턴 (중간 공백 완벽 지원)
   const matches = Array.from(
-    text.matchAll(/\b(?:[Mm]|(?:IVI|1V1|IV))[\s-]?[O0oDQ\d-]{4,}\b/gi)
+    text.matchAll(/(?:[Mm]|IVI|1V1|IV)[\s\-_.]*[0OoDQ]{3,8}[\s\-_.]*\d{1,6}/gi)
   );
 
   const candidates: string[] = [];
@@ -54,6 +54,21 @@ export function findAllM0000Candidates(text: string): string[] {
     }
   }
 
+  // 선장초/충남교육청 공식 표준 형식 (M + 00000(5개) + 4자리 숫자 = 총 10자리) 최우선 정렬
+  candidates.sort((a, b) => {
+    const aIsM00000 = /^M0{5}[1-9]\d{3}$/.test(a);
+    const bIsM00000 = /^M0{5}[1-9]\d{3}$/.test(b);
+    if (aIsM00000 && !bIsM00000) return -1;
+    if (!aIsM00000 && bIsM00000) return 1;
+
+    const aIsTen = /^M\d{9}$/.test(a);
+    const bIsTen = /^M\d{9}$/.test(b);
+    if (aIsTen && !bIsTen) return -1;
+    if (!aIsTen && bIsTen) return 1;
+
+    return 0;
+  });
+
   return candidates;
 }
 
@@ -62,10 +77,10 @@ export function findAllM0000Candidates(text: string): string[] {
  */
 function correctOcrText(text: string): string {
   return text
-    // 1. M0000... 형태 집중 교정 (공백, 하이픈, O, Q, D 오인식 일괄 0으로 치환)
-    .replace(/\b(?:[Mm]|(?:IVI|1V1|IV))[\s-]?[O0oDQ\d]{4,}\b/gi, (m) => normalizeM0000Code(m))
-    // 2. KKR- 슬래시 내부의 MO000... 형태 교정
-    .replace(/(\/\s*)([Mm][O0oDQ\d]{4,})(\s*\/)/gi, (_, p1, id, p2) => p1 + normalizeM0000Code(id) + p2)
+    // 1. M 00000 4435 등 공백/하이픈/오탈자가 섞인 M00000 계열 집중 교정
+    .replace(/(?:[Mm]|(?:IVI|1V1|IV))[\s\-_.]*[0OoDQ]{3,8}[\s\-_.]*\d{1,6}/gi, (m) => normalizeM0000Code(m))
+    // 2. KKR- 슬래시/파이프 내부의 MO000... 형태 교정
+    .replace(/([\/|]\s*)([Mm][O0oDQ\s\d-]{4,})(\s*[\/|])/gi, (_, p1, id, p2) => p1 + normalizeM0000Code(id) + p2)
     .replace(/[Oo](?=\d)/g, '0')
     .replace(/(?<=\d)[Oo]/g, '0')
     .replace(/\bO\b/g, '0')
@@ -144,41 +159,53 @@ export function parseTagText(rawText: string): ParsedTagResult {
   }
 
   // ─────────────────────────────────────────────
-  // 3. 자산번호 추출 (★ M0000 고유번호 최우선 집중 탐색 ★)
+  // 3. 자산번호 추출 (★ M00000(5개) 고유번호 최우선 집중 탐색 ★)
   // ─────────────────────────────────────────────
   let assetId = '';
 
-  // 1) RFID 슬래시 매칭에서 추출된 ID가 M0000 형식인 경우 최우선 확정
+  // 1) RFID 슬래시 매칭에서 추출된 ID가 M0000/M00000 형식인 경우 최우선 확정
   if (rfidAssetId && /^M0{2,}\d+/i.test(rfidAssetId)) {
     assetId = rfidAssetId;
   }
 
-  // 2) 타겟 영역(현재 학교 스티커) 내에서 M0000 계열 후보 탐색
+  // 2) 타겟 영역(현재 학교 스티커)에서 선장초 공식 표준 (M00000 + 4자리: 총 10자리) 우선 탐색
   if (!assetId) {
     const targetCandidates = findAllM0000Candidates(targetText);
-    if (targetCandidates.length > 0) {
+    const standardCandidate = targetCandidates.find(c => /^M0{5}[1-9]\d{3}$/.test(c));
+    if (standardCandidate) {
+      assetId = standardCandidate;
+    } else if (targetCandidates.length > 0) {
       assetId = targetCandidates[0];
     }
   }
 
-  // 3) 명시적 키워드 (고유번호, 물품번호, 자산번호, RFID, 바코드) 직후의 M0000 또는 번호
-  if (!assetId) {
-    const explicitIdMatch = corrected.match(
-      /(?:고유\s*번호|물품\s*번호|자산\s*번호|RFID|바코드)\s*[:\s]*([A-Za-z0-9-]+)/i
-    );
-    if (explicitIdMatch && explicitIdMatch[1].length >= 4) {
-      const norm = normalizeM0000Code(explicitIdMatch[1]);
-      assetId = norm;
+  // 3) 전체 텍스트에서 선장초 공식 표준(M00000 + 4자리) 탐색 (이전 학교 구 스티커 번호보다 항상 최우선)
+  if (!assetId || !/^M0{5}[1-9]\d{3}$/.test(assetId)) {
+    const standardCandidate = rawMCandidates.find(c => /^M0{5}[1-9]\d{3}$/.test(c));
+    if (standardCandidate) {
+      assetId = standardCandidate;
     }
   }
 
-  // 4) 원본 전체 텍스트(rawText) 전역에서 M0000 후보 탐색
-  if (!assetId && rawMCandidates.length > 0) {
-    // 복수 스티커가 있을 때 보통 최신 스티커(선장초)가 후반부에 오므로 마지막 후보 우선
-    assetId = rawMCandidates[rawMCandidates.length - 1];
+  // 4) 명시적 키워드 (고유번호, 물품번호, 자산번호, RFID, 바코드) 직후의 번호
+  if (!assetId) {
+    const explicitIdMatch = corrected.match(
+      /(?:고유\s*번호|물품\s*번호|자산\s*번호|RFID|바코드)\s*[:\s]*([A-Za-z0-9\s-]+)/i
+    );
+    if (explicitIdMatch && explicitIdMatch[1].length >= 4) {
+      const norm = normalizeM0000Code(explicitIdMatch[1]);
+      if (/^M0{2,}\d+/i.test(norm)) {
+        assetId = norm;
+      }
+    }
   }
 
-  // 5) 일반 M 번호 fallback (M0... 이상)
+  // 5) rawMCandidates의 최우선 후보 (선장초 M00000 표준 순서로 기정렬됨)
+  if (!assetId && rawMCandidates.length > 0) {
+    assetId = rawMCandidates[0];
+  }
+
+  // 6) 일반 M 번호 fallback (M0... 이상)
   if (!assetId) {
     const mMatch =
       corrected.match(/\b(M0{2,}\d+)\b/i) ||

@@ -270,23 +270,23 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     </span>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">핵심 자산번호 (M0000)</span>
+                        <span className="text-xs font-bold text-white">핵심 자산번호 (M00000)</span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-400/30">
-                          에듀파인 고유번호
+                          에듀파인 고유번호 (10자리)
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-300 mt-0.5">
                         {editableResult.assetId ? (
                           <span>현재 등록값: <strong className="text-cyan-300 font-mono text-sm tracking-wider font-bold">{editableResult.assetId}</strong></span>
                         ) : (
-                          <span className="text-amber-400 font-medium">사진 속 M0000 번호 칩을 터치하여 지정하세요.</span>
+                          <span className="text-amber-400 font-medium">사진 속 M00000 번호 칩을 터치하여 지정하세요.</span>
                         )}
                       </p>
                     </div>
                   </div>
                   {editableResult.assetId && (
                     <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1 bg-emerald-950/50 px-2 py-1 rounded-lg border border-emerald-500/30">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> M0000 지정됨
+                      <CheckCircle2 className="w-3.5 h-3.5" /> M00000 지정됨
                     </span>
                   )}
                 </div>
@@ -431,13 +431,13 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                 <div className="col-span-2">
                   <div className="flex items-center justify-between mb-1">
                     <label className={labelClass}>
-                      자산 번호 (M0000...)
+                      자산 번호 (M00000...)
                       {focusedField === 'assetId' && (
                         <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
                       )}
                     </label>
                     <span className="text-[10px] text-cyan-400 font-semibold">
-                      ★ 학교 에듀파인 핵심 식별자
+                      ★ 학교 에듀파인 핵심 식별자 (10자리)
                     </span>
                   </div>
                   <div className="relative">
@@ -453,7 +453,7 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                     />
                     {editableResult.assetId && (
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-cyan-300 border border-blue-400/30 font-semibold pointer-events-none">
-                        M0000 형식
+                        M00000 형식
                       </span>
                     )}
                   </div>
