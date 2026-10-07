@@ -93,9 +93,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Building className="w-4 h-4 text-blue-400" />
             <span>건물별 배치도</span>
-            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              NEW
-            </span>
           </button>
         )}
 
@@ -107,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="데이터베이스 백업 (클라우드/로컬)"
           >
             <Download className="w-4 h-4" />
-            <span>DB 백업</span>
+            <span>백업</span>
           </button>
         )}
 
@@ -119,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="데이터베이스 복원 (클라우드/로컬)"
           >
             <Upload className="w-4 h-4" />
-            <span>DB 복원</span>
+            <span>복원</span>
           </button>
         )}
 
@@ -134,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Trash2 className="w-4 h-4" />
-            <span>불용 / 폐기</span>
+            <span>불용</span>
             <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-900/60 text-purple-200 border border-purple-400/30">
               {disposalCount}
             </span>
