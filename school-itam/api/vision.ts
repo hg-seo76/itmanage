@@ -106,7 +106,8 @@ export default async function handler(req: Request) {
     }
 
     // ─────────────────────────────────────────────
-    // 2차 시도: Google Cloud Vision API (TEXT_DETECTION) Fallback
+    // 2차 시도: Google Cloud Vision API (DOCUMENT_TEXT_DETECTION + TEXT_DETECTION) Fallback
+    // 라벨/스티커 등 문서 및 소형 글자에 특화된 DOCUMENT_TEXT_DETECTION 우선 적용
     // ─────────────────────────────────────────────
     const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
       method: 'POST',
@@ -120,6 +121,9 @@ export default async function handler(req: Request) {
               content: imageBase64,
             },
             features: [
+              {
+                type: 'DOCUMENT_TEXT_DETECTION',
+              },
               {
                 type: 'TEXT_DETECTION',
               },
@@ -142,9 +146,10 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 인식된 전체 텍스트 추출
+    // 인식된 전체 텍스트 추출 (fullTextAnnotation 우선 추출로 고밀도 라벨 인식)
+    const fullTextAnnotation = visionData.responses?.[0]?.fullTextAnnotation;
     const textAnnotations = visionData.responses?.[0]?.textAnnotations;
-    const fullText = textAnnotations && textAnnotations.length > 0 ? textAnnotations[0].description : '';
+    const fullText = fullTextAnnotation?.text || (textAnnotations && textAnnotations.length > 0 ? textAnnotations[0].description : '');
 
     return new Response(JSON.stringify({ text: fullText }), {
       status: 200,

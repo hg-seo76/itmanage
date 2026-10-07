@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Image as ImageIcon, 
   Sparkles, 
@@ -7,7 +7,7 @@ import {
   RefreshCw,
   Edit3
 } from 'lucide-react';
-import { scanTagImage, type ParsedTagResult } from '../utils/tagOcrParser';
+import { scanTagImage, extractOcrTokens, type ParsedTagResult } from '../utils/tagOcrParser';
 import type { DeviceCategory } from '../types/asset';
 
 interface TagScannerModalProps {
@@ -29,6 +29,18 @@ interface EditableResult {
   price: string;
 }
 
+const fieldNameMap: Record<keyof EditableResult, string> = {
+  assetId: '자산 번호',
+  name: '품명',
+  category: '기기 구분',
+  manufacturer: '제조사',
+  modelName: '모델명',
+  acquisitionYear: '취득 연도',
+  acquisitionMonth: '취득 월',
+  location: '배치 위치',
+  price: '취득 단가',
+};
+
 const inputClass = "w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600";
 const labelClass = "block text-[11px] font-semibold text-slate-400 mb-1";
 
@@ -43,7 +55,14 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
   const [editableResult, setEditableResult] = useState<EditableResult | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [rawOcrText, setRawOcrText] = useState<string>('');
+  const [selectedToken, setSelectedToken] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<keyof EditableResult | null>('assetId');
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const ocrTokens = useMemo(() => {
+    return extractOcrTokens(rawOcrText);
+  }, [rawOcrText]);
 
   if (!isOpen) return null;
 
@@ -114,6 +133,27 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
   const setField = (field: keyof EditableResult, value: string | number) => {
     setEditableResult(prev => prev ? { ...prev, [field]: value } : prev);
+  };
+
+  const assignTokenToField = (field: keyof EditableResult, value: string) => {
+    if (field === 'acquisitionYear') {
+      const y = parseInt(value.replace(/\D/g, ''), 10);
+      if (y >= 1990 && y <= 2099) setField('acquisitionYear', y);
+    } else if (field === 'acquisitionMonth') {
+      const m = parseInt(value.replace(/\D/g, ''), 10);
+      if (m >= 1 && m <= 12) setField('acquisitionMonth', m);
+    } else {
+      setField(field, value);
+    }
+    setToastMsg(`"${value}" ➔ [${fieldNameMap[field]}] 입력 완료`);
+    setTimeout(() => setToastMsg(null), 2500);
+  };
+
+  const handleTokenClick = (token: string) => {
+    setSelectedToken(token);
+    if (focusedField) {
+      assignTokenToField(focusedField, token);
+    }
   };
 
   return (
@@ -191,28 +231,137 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                 <Edit3 className="w-3.5 h-3.5 text-slate-400 ml-auto" />
               </div>
 
-              <div className="bg-amber-500/8 border border-amber-500/25 rounded-xl px-4 py-2.5 text-[11px] text-amber-300">
-                ✏️ OCR이 잘못 읽은 항목이 있다면 아래에서 직접 수정 후 [등록 폼에 채우기]를 누르세요.
-              </div>
+              {/* 💡 원터치 입력 칩 패널 */}
+              {ocrTokens.length > 0 && (
+                <div className="bg-slate-950/90 border border-blue-500/30 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-300">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>사진에서 감지된 단어/문구 (원터치 자동 입력)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      {focusedField ? (
+                        <span className="text-cyan-400 font-semibold">
+                          선택된 칸: [{fieldNameMap[focusedField]}]
+                        </span>
+                      ) : (
+                        '칩 클릭 후 채울 항목 선택'
+                      )}
+                    </span>
+                  </div>
+
+                  {/* 단어 칩 목록 */}
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1 bg-slate-900/60 rounded-lg border border-slate-800">
+                    {ocrTokens.map((token, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleTokenClick(token)}
+                        title={`클릭 시 [${focusedField ? fieldNameMap[focusedField] : '선택 칸'}]에 입력`}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium border transition-all ${
+                          selectedToken === token
+                            ? 'bg-blue-600 text-white border-blue-400 shadow-sm shadow-blue-500/50 scale-105'
+                            : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-500 hover:text-white'
+                        }`}
+                      >
+                        {token}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 선택된 칩에 대한 퀵 배정 버튼 바 */}
+                  {selectedToken && (
+                    <div className="pt-1.5 flex flex-wrap items-center gap-1.5 animate-fade-in text-[11px]">
+                      <span className="text-cyan-300 font-semibold truncate max-w-[150px]">
+                        "{selectedToken}" ➔
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => assignTokenToField('assetId', selectedToken)}
+                        className="px-2 py-0.5 rounded bg-blue-900/70 hover:bg-blue-600 text-blue-200 hover:text-white border border-blue-700/50 transition-all font-semibold"
+                      >
+                        자산번호
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => assignTokenToField('name', selectedToken)}
+                        className="px-2 py-0.5 rounded bg-emerald-900/70 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-700/50 transition-all font-semibold"
+                      >
+                        품명
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => assignTokenToField('manufacturer', selectedToken)}
+                        className="px-2 py-0.5 rounded bg-purple-900/70 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-700/50 transition-all font-semibold"
+                      >
+                        제조사
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => assignTokenToField('modelName', selectedToken)}
+                        className="px-2 py-0.5 rounded bg-amber-900/70 hover:bg-amber-600 text-amber-200 hover:text-white border border-amber-700/50 transition-all font-semibold"
+                      >
+                        모델명
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => assignTokenToField('location', selectedToken)}
+                        className="px-2 py-0.5 rounded bg-rose-900/70 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-700/50 transition-all font-semibold"
+                      >
+                        배치위치
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => assignTokenToField('price', selectedToken)}
+                        className="px-2 py-0.5 rounded bg-indigo-900/70 hover:bg-indigo-600 text-indigo-200 hover:text-white border border-indigo-700/50 transition-all font-semibold"
+                      >
+                        취득단가
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 알림 토스트 메시지 */}
+                  {toastMsg && (
+                    <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1 animate-fade-in">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{toastMsg}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 {/* 자산번호 */}
                 <div className="col-span-2">
-                  <label className={labelClass}>자산 번호</label>
+                  <label className={labelClass}>
+                    자산 번호
+                    {focusedField === 'assetId' && (
+                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                    )}
+                  </label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${focusedField === 'assetId' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
                     value={editableResult.assetId}
+                    onFocus={() => setFocusedField('assetId')}
+                    onClick={() => setFocusedField('assetId')}
                     onChange={e => setField('assetId', e.target.value)}
-                    placeholder="예: M000012345 (미인식 시 직접 입력 가능)"
+                    placeholder="예: M000012345 (미인식 시 직접 입력 또는 위 칩 클릭)"
                   />
                 </div>
 
                 {/* 품명 */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className={labelClass}>품 명</label>
+                  <label className={labelClass}>
+                    품 명
+                    {focusedField === 'name' && (
+                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                    )}
+                  </label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${focusedField === 'name' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
                     value={editableResult.name}
+                    onFocus={() => setFocusedField('name')}
+                    onClick={() => setFocusedField('name')}
                     onChange={e => setField('name', e.target.value)}
                     placeholder="예: LCD 패널 또는 모니터"
                   />
@@ -241,10 +390,17 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
                 {/* 제조사 */}
                 <div>
-                  <label className={labelClass}>제조사</label>
+                  <label className={labelClass}>
+                    제조사
+                    {focusedField === 'manufacturer' && (
+                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                    )}
+                  </label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${focusedField === 'manufacturer' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
                     value={editableResult.manufacturer}
+                    onFocus={() => setFocusedField('manufacturer')}
+                    onClick={() => setFocusedField('manufacturer')}
                     onChange={e => setField('manufacturer', e.target.value)}
                     placeholder="예: 삼성전자"
                   />
@@ -252,10 +408,17 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
                 {/* 모델명 */}
                 <div>
-                  <label className={labelClass}>모델명</label>
+                  <label className={labelClass}>
+                    모델명
+                    {focusedField === 'modelName' && (
+                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                    )}
+                  </label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${focusedField === 'modelName' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
                     value={editableResult.modelName}
+                    onFocus={() => setFocusedField('modelName')}
+                    onClick={() => setFocusedField('modelName')}
                     onChange={e => setField('modelName', e.target.value)}
                     placeholder="예: NT900X"
                   />
@@ -263,13 +426,20 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
                 {/* 취득연도 */}
                 <div>
-                  <label className={labelClass}>취득 연도</label>
+                  <label className={labelClass}>
+                    취득 연도
+                    {focusedField === 'acquisitionYear' && (
+                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                    )}
+                  </label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${focusedField === 'acquisitionYear' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
                     type="number"
                     min={1990}
                     max={2099}
                     value={editableResult.acquisitionYear}
+                    onFocus={() => setFocusedField('acquisitionYear')}
+                    onClick={() => setFocusedField('acquisitionYear')}
                     onChange={e => setField('acquisitionYear', parseInt(e.target.value) || new Date().getFullYear())}
                   />
                 </div>
@@ -290,10 +460,17 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
                 {/* 위치 */}
                 <div>
-                  <label className={labelClass}>배치 위치</label>
+                  <label className={labelClass}>
+                    배치 위치
+                    {focusedField === 'location' && (
+                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                    )}
+                  </label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${focusedField === 'location' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
                     value={editableResult.location}
+                    onFocus={() => setFocusedField('location')}
+                    onClick={() => setFocusedField('location')}
                     onChange={e => setField('location', e.target.value)}
                     placeholder="예: 교무실"
                   />
@@ -301,10 +478,17 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
                 {/* 취득단가 */}
                 <div>
-                  <label className={labelClass}>취득 단가 (원)</label>
+                  <label className={labelClass}>
+                    취득 단가 (원)
+                    {focusedField === 'price' && (
+                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                    )}
+                  </label>
                   <input
-                    className={inputClass}
+                    className={`${inputClass} ${focusedField === 'price' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
                     value={editableResult.price}
+                    onFocus={() => setFocusedField('price')}
+                    onClick={() => setFocusedField('price')}
                     onChange={e => setField('price', e.target.value)}
                     placeholder="예: 1,000,000"
                   />
@@ -313,10 +497,11 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
               {/* Raw OCR Debug */}
               <details className="border border-slate-800 bg-slate-900/40 rounded-xl overflow-hidden">
-                <summary className="px-4 py-2.5 text-[11px] font-semibold text-slate-500 cursor-pointer hover:bg-slate-800/60 transition-all">
-                  🧐 OCR 원본 인식 텍스트 보기 (참고용)
+                <summary className="px-4 py-2.5 text-[11px] font-semibold text-slate-500 cursor-pointer hover:bg-slate-800/60 transition-all flex items-center justify-between">
+                  <span>🧐 OCR 원본 인식 전체 텍스트 보기 (참고용)</span>
+                  <span className="text-[10px] text-slate-600">클릭하여 펼치기</span>
                 </summary>
-                <div className="p-4 bg-slate-950 border-t border-slate-800 text-[10px] text-slate-500 font-mono whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">
+                <div className="p-4 bg-slate-950 border-t border-slate-800 text-[10px] text-slate-400 font-mono whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed select-all">
                   {rawOcrText || '인식된 텍스트가 없습니다.'}
                 </div>
               </details>

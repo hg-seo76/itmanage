@@ -21,6 +21,8 @@ export interface ParsedTagResult {
  */
 function correctOcrText(text: string): string {
   return text
+    // M0000... 형태에서 O를 0으로 일괄 치환 (MO00004435, MOOOOO1234 등 다중 O 완벽 대응)
+    .replace(/\bM[O0\d]{5,}\b/gi, (m) => 'M' + m.slice(1).replace(/O/gi, '0'))
     .replace(/[Oo](?=\d)/g, '0')
     .replace(/(?<=\d)[Oo]/g, '0')
     .replace(/\bO\b/g, '0')
@@ -88,9 +90,18 @@ export function parseTagText(rawText: string): ParsedTagResult {
   // 3. 자산번호 추출 (RFID 슬래시 매칭 최우선)
   // ─────────────────────────────────────────────
   let assetId = rfidAssetId;
+  // 명시적 키워드 (고유번호, 물품번호, 자산번호, 바코드, RFID 등) 매칭
+  if (!assetId) {
+    const explicitIdMatch = corrected.match(
+      /(?:고유\s*번호|물품\s*번호|자산\s*번호|RFID|바코드)\s*[:\s]*([A-Z0-9-]+)/i
+    );
+    if (explicitIdMatch && explicitIdMatch[1].length >= 4) {
+      assetId = explicitIdMatch[1].replace(/[Oo]/g, '0').toUpperCase();
+    }
+  }
   if (!assetId) {
     const mMatch =
-      corrected.match(/\b(M0{4}\d+)\b/i) ||
+      corrected.match(/\b(M0{3,}\d+)\b/i) ||
       corrected.match(/\b(M\d{7,12})\b/i) ||
       corrected.match(/\b(M\d{5,})\b/i);
     assetId = mMatch ? mMatch[1].toUpperCase() : '';
@@ -124,9 +135,9 @@ export function parseTagText(rawText: string): ParsedTagResult {
     }
   }
 
-  // 패턴 B: 취득단가 직접 매칭
+  // 패턴 B: 취득단가 또는 단가 직접 매칭
   if (!price) {
-    const priceMatch = corrected.match(/취득\s*단가\s*[:\s]*([\d,]+)/i);
+    const priceMatch = corrected.match(/(?:취득\s*)?단가\s*[:\s]*([\d,]+)/i);
     price = priceMatch ? priceMatch[1] : undefined;
   }
 
@@ -212,6 +223,14 @@ export function parseTagText(rawText: string): ParsedTagResult {
     name = explicitNameMatch[1].trim();
   }
 
+  // 1-2) 분류번호 바로 다음 줄/단어에 품명이 위치한 레이아웃 지원
+  if (!name) {
+    const classNoFollowMatch = fullText.match(/분류\s*번호\s*[\d-]+\s+([가-힣A-Za-z0-9]+)/);
+    if (classNoFollowMatch && !/^(취득|규격|비고|단가|운용|설치)/.test(classNoFollowMatch[1])) {
+      name = classNoFollowMatch[1].trim();
+    }
+  }
+
   // 2) 규격명 CSV 파싱
   const specAfterKeyword = fullText.match(/규\s*격\s*명?\s*[:\s]*([^규분취비\r\n]{5,})/i);
   let specParts: string[] = [];
@@ -259,6 +278,15 @@ export function parseTagText(rawText: string): ParsedTagResult {
     }
   }
 
+  // 모델명 fallback: 텍스트 내에서 모델 품번/규격 코드 직접 탐지 (예: DT166-G671-OU01, SDM-24LEDJH, NT900X5N)
+  if (!modelName) {
+    const modelPattern = /\b([A-Z0-9]{2,8}[-_][A-Z0-9]{2,8}(?:[-_][A-Z0-9]+)?)\b/i;
+    const modelMatch = fullText.match(modelPattern);
+    if (modelMatch && !/^KKR-/i.test(modelMatch[1])) {
+      modelName = modelMatch[1].trim();
+    }
+  }
+
   // 품명 fallback
   if (!name) {
     if (fullText.includes('데스크톱') || fullText.includes('컴퓨터')) {
@@ -296,16 +324,23 @@ export function parseTagText(rawText: string): ParsedTagResult {
   // ─────────────────────────────────────────────
   let location = rfidLocation;
 
+  // 1순위: 설치장소, 운용부서, 사용위치, 배치위치 키워드
+  if (!location) {
+    const locKeyMatch = fullText.match(/(?:설치\s*장소|운용\s*부서|사용\s*위치|배치\s*위치)\s*[:\s]*([^\r\n취분품규비※]{2,20})/i);
+    if (locKeyMatch) {
+      location = locKeyMatch[1].replace(/\(.*?\)/g, '').trim();
+    }
+  }
+
+  const schoolRoomsRegex = /교무실|행정실|급식실|영양실|영양사실|조리실|과학실|컴퓨터실|도서관|도서실|방송실|보건실|돌봄교실|늘봄교실|음악실|미술실|체육관|강당|당직실|인쇄실|회의실|상담실|위클래스|Wee클래스|영어실|어학실|특수학급|특수교실|유치원|교장실|행정실장실|숙직실|서고|문서고|동아리실|학생회실|진로상담실|전산실|스마트교실|무한상상실|메이커스페이스|서버실|초등교무|초등교무센터|초등교무실|중등교무실|교원연구실/;
+
   // RFID 슬래시에서 위치를 못 찾았을 때 비고 행에서 슬래시 구분 위치 탐색
   if (!location) {
     const remarkLineMatch = fullText.match(/비\s*고\s*[:\s]*(.+?)(?=취득|분류|품명|규격|※|$)/i);
     if (remarkLineMatch) {
       const slashParts = remarkLineMatch[1].split('/').map((p: string) => p.trim());
       for (const part of slashParts) {
-        if (
-          /\d학년/.test(part) ||
-          /교무실|행정실|급식실|과학실|컴퓨터실|도서관|교실|음악|보건|영양|특수|늘봄|영어실|정보실|초등교무/.test(part)
-        ) {
+        if (/\d학년/.test(part) || schoolRoomsRegex.test(part)) {
           location = part.replace(/\(.*?\)/g, '').trim();
           if (!location) continue; // 괄호만 있는 경우 건너뜀
           break;
@@ -314,10 +349,10 @@ export function parseTagText(rawText: string): ParsedTagResult {
       // 슬래시 구분이 없을 때 비고 전체에서 위치 키워드 탐색
       if (!location) {
         const allText = remarkLineMatch[1];
-        if (allText.includes('급식실')) location = '급식실';
-        else if (allText.includes('교무실') || allText.includes('초등교무센터')) location = '교무실';
-        else if (allText.includes('행정실')) location = '행정실';
-        else if (/\d학년/.test(allText)) {
+        const matchRoom = allText.match(schoolRoomsRegex);
+        if (matchRoom) {
+          location = matchRoom[0];
+        } else if (/\d학년/.test(allText)) {
           const gm = allText.match(/(\d학년\s*\d*반?교실?)/);
           location = gm ? gm[1] : allText.match(/(\d학년)/)?.[1] + '교실' || '';
         }
@@ -327,13 +362,10 @@ export function parseTagText(rawText: string): ParsedTagResult {
 
   // 전체 텍스트 fallback
   if (!location) {
-    if (fullText.includes('급식실')) location = '급식실';
-    else if (fullText.includes('교무실') || fullText.includes('초등교무센터')) location = '교무실';
-    else if (fullText.includes('행정실')) location = '행정실';
-    else if (fullText.includes('과학실')) location = '과학실';
-    else if (fullText.includes('컴퓨터실')) location = '컴퓨터실';
-    else if (fullText.includes('도서관')) location = '도서관';
-    else if (/\d학년/.test(fullText)) {
+    const matchRoom = fullText.match(schoolRoomsRegex);
+    if (matchRoom) {
+      location = matchRoom[0];
+    } else if (/\d학년/.test(fullText)) {
       const gm = fullText.match(/(\d학년\s*\d*반?교실?)/);
       if (gm) location = gm[1];
       else {
@@ -488,3 +520,43 @@ export async function scanTagImage(
 
   return parseTagText(text);
 }
+
+/**
+ * OCR 전체 텍스트에서 사용자가 원터치로 입력 칸에 채울 수 있는 유효 단어/구문 토큰 목록 추출
+ */
+export function extractOcrTokens(rawText: string): string[] {
+  if (!rawText) return [];
+
+  // 불필요한 라벨성 단어 제외 필터
+  const skipPattern = /^(이\s*물품은|선장초등학교|아산공수초등학교|자산입니다|비고|규격명?|품명|분류번호|취득일자?|취득단가|단가|내용연수|운용부서|설치장소|고유번호|물품번호|규격|확인|등록)$/i;
+
+  // 1) 의미 단위 분할 (줄바꿈, 슬래시, 쉼표, 특수기호)
+  const segments = rawText
+    .split(/[\r\n/|•·,]+/)
+    .map(s => s.trim().replace(/^[:\-\s]+|[:\-\s]+$/g, ''))
+    .filter(s => s.length >= 2 && s.length <= 40 && !skipPattern.test(s));
+
+  // 2) 단어 단위 분할 (자산번호, 모델명, 단가, 날짜, 실명 등 핵심 단어 추출)
+  const words: string[] = [];
+  rawText.split(/\s+/).forEach(token => {
+    const clean = token.replace(/^[()[\]{}<>•·,:"'-]+|[()[\]{}<>•·,:"'-]+$/g, '').trim();
+    if (clean.length >= 2 && clean.length <= 35 && !skipPattern.test(clean)) {
+      if (
+        /^M[O0\d]{4,}/i.test(clean) ||
+        /\d{1,3}(,\d{3})+/.test(clean) ||
+        /\d{4}[-./]\d{1,2}[-./]\d{1,2}/.test(clean) ||
+        /[A-Z0-9]{2,8}[-_][A-Z0-9]{2,8}/i.test(clean) ||
+        /교무실|행정실|급식실|과학실|컴퓨터실|도서관|방송실|보건실|돌봄|늘봄|교실/i.test(clean) ||
+        /컴퓨터|노트북|모니터|태블릿|프린터|카메라/i.test(clean) ||
+        /삼성|LG|삼보|다나와|레노버|HP|루컴즈|라인피아/i.test(clean)
+      ) {
+        words.push(clean);
+      }
+    }
+  });
+
+  // 중복 제거 및 정제
+  const unique = Array.from(new Set([...segments, ...words]));
+  return unique.filter(t => t.length >= 2 && !/^\d{1}$/.test(t));
+}
+
