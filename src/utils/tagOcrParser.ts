@@ -71,15 +71,18 @@ export function findAllM0000Candidates(text: string): string[] {
     }
   }
 
-  // 3) 분리형 태그: /숫자(4~8자리)/교실 형태 탐색 (M이 완전히 누락되거나 N으로 분리된 경우도 복원)
+  // 3) 분리형 태그: /숫자(7자리 이상)/교실 형태 탐색 (M이 완전히 누락되거나 N으로 분리된 경우도 복원, 5자리 이하 파편 제외)
   const roomPrecedingTokens = Array.from(
     text.matchAll(/[\/|\n\s](0{2,8}\d{2,6})\s*[\/|]\s*(?:[가-힣\d\s]+(?:교실|실|관|부서|센터))/gi)
   );
   for (const rm of roomPrecedingTokens) {
-    const normalized = normalizeM0000Code('M' + rm[1]);
-    if (/^M0{2,}\d+$/.test(normalized) && normalized.length >= 6) {
-      if (!candidates.includes(normalized)) {
-        candidates.push(normalized);
+    const rawDigits = rm[1].replace(/\D/g, '');
+    if (rawDigits.length >= 7) {
+      const normalized = normalizeM0000Code('M' + rawDigits);
+      if (/^M0{2,}\d+$/.test(normalized) && normalized.length >= 6) {
+        if (!candidates.includes(normalized)) {
+          candidates.push(normalized);
+        }
       }
     }
   }
@@ -131,20 +134,28 @@ const schoolRoomsRegex = /교무실|행정실|급식실|영양실|영양사실|�
  *   - O(알파벳)과 0(숫자) 혼동 빈번
  */
 export function parseTagText(rawText: string): ParsedTagResult {
+  // RFID 보안 워터마크 노이즈 (R, XID, ID, RFI, RPY, RE, RP, FID, FIL, RH, ND R 등 단독 라인) 정제
+  const watermarkNoiseLineRegex = /^(?:R|XID|ID|RFI|RPY|RE|RP|FID|FIL|RH|ND\s*R|RFID)$/i;
+  const sanitizedText = (rawText || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => !watermarkNoiseLineRegex.test(line))
+    .join('\n');
+
   // 전체 M0000 후보군 사전 추출
-  const rawMCandidates = findAllM0000Candidates(rawText);
+  const rawMCandidates = findAllM0000Candidates(sanitizedText);
 
   // 1. 다중 스티커(타 학교 전입 전 구 라벨 + 선장초등학교 현 라벨) 감지 및 타겟팅
   // KKR- 또는 선장초등학교 RFID 라벨이 감지되면 해당 영역을 최우선으로 타겟팅
-  let targetText = rawText;
-  if (/선장초|선장|아산\s*선장/i.test(rawText) || /KKR[-\u2013]/i.test(rawText)) {
-    const kkrPos = rawText.search(/KKR[-\u2013]/i);
-    const sunjangPos = rawText.search(/선장초등학교|선장초/i);
+  let targetText = sanitizedText;
+  if (/선장초|선장|아산\s*선장/i.test(sanitizedText) || /KKR[-\u2013]/i.test(sanitizedText)) {
+    const kkrPos = sanitizedText.search(/KKR[-\u2013]/i);
+    const sunjangPos = sanitizedText.search(/선장초등학교|선장초/i);
     const keyPos = kkrPos !== -1 ? kkrPos : sunjangPos;
     if (keyPos !== -1) {
       // keyPos 앞의 가장 가까운 "분류번호" 또는 시작점으로 슬라이스
-      const startIdx = Math.max(0, rawText.lastIndexOf('분류번호', keyPos));
-      targetText = rawText.slice(startIdx);
+      const startIdx = Math.max(0, sanitizedText.lastIndexOf('분류번호', keyPos));
+      targetText = sanitizedText.slice(startIdx);
 
       // 이전 학교(아산공수초 등)가 여전히 앞에 포함되어 있다면, 두 번째 분류번호로 슬라이스하여 완벽 분리
       if (/아산공수|공수초/i.test(targetText)) {
@@ -248,8 +259,9 @@ export function parseTagText(rawText: string): ParsedTagResult {
   // 4. 분류번호 추출 (예: 43211507-25937082)
   // ─────────────────────────────────────────────
   const classNoMatch =
+    corrected.match(/(\d{8}-\d{8})/) ||
     corrected.match(/분류\s*번호\s*[:\s]*([\d-]{10,})/i) ||
-    corrected.match(/(\d{8}-\d{8})/);
+    corrected.match(/(\d{8})/);
   const classificationNo = classNoMatch ? classNoMatch[1] : undefined;
 
   // ─────────────────────────────────────────────
@@ -578,20 +590,20 @@ export function parseTagText(rawText: string): ParsedTagResult {
     price,
     classificationNo,
     remarks: remarkParts.length > 0 ? remarkParts.join(' | ') : 'RFID 태그 AI 스캔 자동 등록',
-    rawText,
+    rawText: sanitizedText,
     mCandidates: rawMCandidates,
   };
 }
 
 /**
  * Canvas API를 이용해 이미지를 OCR에 최적화된 형태로 전처리
- * (원본 색상/디테일을 온전히 보존하면서 전송 용량만 2048px 이하로 안전하게 리사이징)
+ * (원본 색상/디테일을 온전히 보존하면서 전송 용량만 안전하게 리사이징)
  */
 function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const MAX_DIM = 2048;
+      const MAX_DIM = 2560;
       let { naturalWidth: w, naturalHeight: h } = img;
       if (w > MAX_DIM || h > MAX_DIM) {
         const scale = MAX_DIM / Math.max(w, h);
@@ -603,6 +615,8 @@ function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, w, h);
       resolve(canvas);
     };
@@ -612,7 +626,7 @@ function preprocessImageForOcr(file: File | Blob): Promise<HTMLCanvasElement> {
 }
 
 function canvasToBase64(canvas: HTMLCanvasElement): string {
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   return dataUrl.split(',')[1];
 }
 

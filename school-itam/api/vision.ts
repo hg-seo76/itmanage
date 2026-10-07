@@ -116,8 +116,10 @@ export default async function handler(req: Request) {
     }
 
     // ─────────────────────────────────────────────
-    // 2차 시도: Google Cloud Vision API (DOCUMENT_TEXT_DETECTION + TEXT_DETECTION) Fallback
-    // 라벨/스티커 등 문서 및 소형 글자에 특화된 DOCUMENT_TEXT_DETECTION 우선 적용
+    // 2차 시도: Google Cloud Vision API: TEXT_DETECTION 적용
+    // ※ 주의: DOCUMENT_TEXT_DETECTION은 라벨 배경의 연한 'RFID' 보안 워터마크 패턴을 
+    //   문자로 오인식(R, XID, FID, RPY, RE, RP 등)하고 표 구조를 분할하므로, 
+    //   실제 물품 라벨 스티커에서는 전경 텍스트에 특화된 TEXT_DETECTION을 사용합니다.
     // ─────────────────────────────────────────────
     const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
       method: 'POST',
@@ -131,9 +133,6 @@ export default async function handler(req: Request) {
               content: imageBase64,
             },
             features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION',
-              },
               {
                 type: 'TEXT_DETECTION',
               },
@@ -165,10 +164,18 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 인식된 전체 텍스트 추출 (fullTextAnnotation 우선 추출로 고밀도 라벨 인식)
-    const fullTextAnnotation = visionData.responses?.[0]?.fullTextAnnotation;
+    // 인식된 전체 텍스트 추출 (TEXT_DETECTION 결과인 textAnnotations[0].description 최우선 적용)
     const textAnnotations = visionData.responses?.[0]?.textAnnotations;
-    const fullText = fullTextAnnotation?.text || (textAnnotations && textAnnotations.length > 0 ? textAnnotations[0].description : '') || '';
+    const fullTextAnnotation = visionData.responses?.[0]?.fullTextAnnotation;
+    let fullText = (textAnnotations && textAnnotations.length > 0 ? textAnnotations[0].description : '') || fullTextAnnotation?.text || '';
+
+    // 라벨 배경의 RFID 보안 워터마크 노이즈 (R, XID, ID, RFI, RPY, RE, RP, FID, FIL, RH, ND R 등 단독 라인) 완벽 제거
+    const watermarkNoiseLineRegex = /^(?:R|XID|ID|RFI|RPY|RE|RP|FID|FIL|RH|ND\s*R|RFID)$/i;
+    fullText = fullText
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => !watermarkNoiseLineRegex.test(line))
+      .join('\n');
 
     return new Response(JSON.stringify({ text: fullText }), {
       status: 200,
