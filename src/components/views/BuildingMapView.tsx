@@ -28,6 +28,7 @@ import {
   Copy,
   Presentation,
   Camera,
+  Network,
 } from 'lucide-react';
 import { isAssetInUse, type Asset } from '../../types/asset';
 
@@ -513,7 +514,8 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
         if (categoryFilter === 'board' && rank !== 7) return false;
         if (categoryFilter === 'tv' && rank !== 8) return false;
         if (categoryFilter === 'camera' && rank !== 9) return false;
-        if (!['computer','monitor','laptop','tablet','printer','copier','board','tv','camera'].includes(categoryFilter) && a.category !== categoryFilter) {
+        if (categoryFilter === 'ip' && !a.credentials?.ipAddress) return false;
+        if (!['computer','monitor','laptop','tablet','printer','copier','board','tv','camera','ip'].includes(categoryFilter) && a.category !== categoryFilter) {
           return false;
         }
       }
@@ -539,6 +541,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
   const boardCount = assets.filter(a => getDeviceSortRank(a) === 7).length;
   const tvCount = assets.filter(a => getDeviceSortRank(a) === 8).length;
   const cameraCount = assets.filter(a => getDeviceSortRank(a) === 9).length;
+  const ipCount = assets.filter(a => !!a.credentials?.ipAddress).length;
 
   const getAssetsForRoom = (room: RoomConfig): Asset[] => {
     return filteredAssets.filter(asset => {
@@ -615,10 +618,10 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
     : buildingConfig.filter(f => f.floor === selectedFloor);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header Banner & Filter Controls */}
-      <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 backdrop-blur-md shadow-xl">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+      <div className="bg-slate-900/80 px-4 py-3 rounded-2xl border border-slate-800 backdrop-blur-md shadow-xl">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-3">
           <div>
             <h2 className="text-2xl font-black text-slate-100 flex items-center gap-3">
               <div className="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
@@ -626,9 +629,6 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               </div>
               정보화 기기 배치도
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              실별 구성원을 자유롭게 추가/삭제하고, 담당자별 맞춤 기기를 즉시 등록 관리하세요.
-            </p>
           </div>
 
           {/* Floor Tabs & Reset Button */}
@@ -716,7 +716,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2.5 no-print">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-11 gap-2.5 no-print">
             {/* 전체 */}
             <button
               onClick={() => setCategoryFilter('all')}
@@ -896,12 +896,30 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                 <Camera className="w-3.5 h-3.5" />
               </div>
             </button>
+
+            {/* 10. IP */}
+            <button
+              onClick={() => setCategoryFilter('ip')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'ip'
+                  ? 'bg-cyan-600/20 border-cyan-500 text-white ring-2 ring-cyan-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">IP 할당기기</p>
+                <p className="text-xs font-bold text-cyan-300">{ipCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-cyan-500/10 text-cyan-400">
+                <Network className="w-3.5 h-3.5" />
+              </div>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Floor Sections */}
-      <div className="space-y-8">
+      <div className="space-y-4">
         {visibleFloors.map(floor => {
           const is1F = floor.floor === 1;
           const is2F = floor.floor === 2;
@@ -925,7 +943,6 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                   </span>
                   <div>
                     <h3 className="font-extrabold text-sm text-slate-100">{floor.name}</h3>
-                    <p className="text-[11px] text-slate-400">{floor.description}</p>
                   </div>
                 </div>
                 <span className="text-xs text-slate-400 font-medium">

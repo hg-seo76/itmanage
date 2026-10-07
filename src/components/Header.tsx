@@ -1,8 +1,6 @@
 import React from 'react';
 import { 
   Search, 
-  ShieldCheck, 
-  ShieldAlert, 
   Printer, 
   RotateCcw, 
   UserCheck,
@@ -18,8 +16,6 @@ import type { ViewTab } from '../types/asset';
 interface HeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  privacyMode: boolean;
-  onTogglePrivacy: () => void;
   onResetData: () => void;
   onPrint: () => void;
   onOpenAuthModal: () => void;
@@ -33,8 +29,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   onSearchChange,
-  privacyMode,
-  onTogglePrivacy,
   onResetData,
   onPrint,
   onOpenAuthModal,
@@ -47,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { userEmail, isAuthenticated } = useAuth();
 
   return (
-    <header className="h-20 bg-slate-900/60 border-b border-slate-800 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 no-print">
+    <header className="h-14 bg-slate-900/60 border-b border-slate-800 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 no-print">
       {/* Left: Reorganized Items */}
       <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar">
         {/* Account Button */}
@@ -99,9 +93,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Building className="w-4 h-4 text-blue-400" />
             <span>건물별 배치도</span>
-            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              NEW
-            </span>
           </button>
         )}
 
@@ -113,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="데이터베이스 백업 (클라우드/로컬)"
           >
             <Download className="w-4 h-4" />
-            <span>DB 백업</span>
+            <span>백업</span>
           </button>
         )}
 
@@ -125,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="데이터베이스 복원 (클라우드/로컬)"
           >
             <Upload className="w-4 h-4" />
-            <span>DB 복원</span>
+            <span>복원</span>
           </button>
         )}
 
@@ -140,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Trash2 className="w-4 h-4" />
-            <span>불용 / 폐기</span>
+            <span>불용</span>
             <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-purple-900/60 text-purple-200 border border-purple-400/30">
               {disposalCount}
             </span>
@@ -165,29 +156,6 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Remaining Actions */}
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {/* Privacy Mode Toggle */}
-        <button
-          onClick={onTogglePrivacy}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all ${
-            privacyMode
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-          }`}
-          title="개인정보 및 네트워크 IP/암호 마스킹 토글"
-        >
-          {privacyMode ? (
-            <>
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>보안 마스킹 ON</span>
-            </>
-          ) : (
-            <>
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span>보안 마스킹 OFF</span>
-            </>
-          )}
-        </button>
-
         {/* Print Button */}
         <button
           onClick={onPrint}
