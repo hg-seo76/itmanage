@@ -74,6 +74,8 @@ function correctOcrText(text: string): string {
     .replace(/(?<=\d)[Ii]/g, '1');
 }
 
+const schoolRoomsRegex = /교무실|행정실|급식실|영양실|영양사실|조리실|과학실|컴퓨터실|도서관|도서실|방송실|보건실|돌봄교실|늘봄교실|음악실|미술실|체육관|강당|당직실|인쇄실|회의실|상담실|위클래스|Wee클래스|영어실|어학실|특수학급|특수교실|유치원|교장실|행정실장실|숙직실|서고|문서고|동아리실|학생회실|진로상담실|전산실|스마트교실|무한상상실|메이커스페이스|서버실|초등교무|초등교무센터|초등교무실|중등교무실|교원연구실/;
+
 /**
  * 물품 스티커 텍스트를 분석하여 자산 필드로 추출하는 파서
  *
@@ -119,11 +121,11 @@ export function parseTagText(rawText: string): ParsedTagResult {
   // 충남 교육청 RFID 정식 라벨 형식: KKR-GAN-0011513160 / MO00004435 / 급식실
   // ─────────────────────────────────────────────
   const kkrSlashMatch = corrected.match(
-    /(KKR[-\u2013][A-Z0-9-]+)\s*[\/|]\s*([A-Z0-9]+)\s*[\/|]\s*([가-힣A-Za-z0-9\s()]+)/i
+    /(?:[•*·]\s*)?(KKR[\s\-_A-Z0-9]+?)\s*[\/|]\s*([A-Z0-9\s]+?)\s*[\/|]\s*([가-힣A-Za-z0-9\s()]+)/i
   );
   let rfidAssetId = '';
   let rfidLocation = '';
-  const kkrMatch = corrected.match(/(KKR[-\u2013][A-Z0-9-]+)/i);
+  const kkrMatch = corrected.match(/(KKR[\s\-_A-Z0-9]+)/i);
 
   if (kkrSlashMatch) {
     const rawId = normalizeM0000Code(kkrSlashMatch[2]);
@@ -136,7 +138,8 @@ export function parseTagText(rawText: string): ParsedTagResult {
       .replace(/\(.*?\)/g, '')
       .trim();
     if (locCandidate) {
-      rfidLocation = locCandidate;
+      const locMatch = locCandidate.match(schoolRoomsRegex);
+      rfidLocation = locMatch ? locMatch[0] : locCandidate.replace(/(?:취득|단가|규격|분류|선장초|이\s*물품).*$/i, '').trim();
     }
   }
 
@@ -205,7 +208,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
   );
   if (tableHeaderMatch) {
     price = tableHeaderMatch[1];
-    const dMatch = tableHeaderMatch[2].match(/((?:19|20)\d{2})[-./년\s]+(0?[1-9]|1[0-2])/);
+    const dMatch = tableHeaderMatch[2].match(/((?:19|20)\d{2})[-./년\s]+(1[0-2]|0?[1-9])/);
     if (dMatch) {
       acquisitionYear = parseInt(dMatch[1], 10);
       acquisitionMonth = parseInt(dMatch[2], 10);
@@ -233,7 +236,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
 
     // 우선순위 1: "취득일" 또는 "취득일자" 키워드 직후의 완전한 날짜 형식
     const directDateMatch = corrected.match(
-      /(?:취득\s*일(?:\s*자)?)\s*[:\s]*((?:19|20)\d{2})[-./년\s]+(0?[1-9]|1[0-2])(?:[-./월\s]+(\d{1,2}))?/i
+      /(?:취득\s*일(?:\s*자)?)\s*[:\s]*((?:19|20)\d{2})[-./년\s]+(1[0-2]|0?[1-9])(?:[-./월\s]+(\d{1,2}))?/i
     );
     if (directDateMatch) {
       foundYear = parseInt(directDateMatch[1], 10);
@@ -242,7 +245,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
 
     // 우선순위 2: 전체 텍스트에서 4자리 연도 기반의 표준 날짜 형식 탐색 (예: 2020-03-30, 2020-03-30(5), 2017-03-29(5))
     if (!foundYear) {
-      const globalYmdMatch = corrected.match(/(?<![\d-])((?:19|20)\d{2})[-./\s](0?[1-9]|1[0-2])[-./\s](\d{1,2})(?![\d-])/);
+      const globalYmdMatch = corrected.match(/(?<![\d-])((?:19|20)\d{2})[-./\s](1[0-2]|0?[1-9])[-./\s](\d{1,2})(?![\d-])/);
       if (globalYmdMatch) {
         foundYear = parseInt(globalYmdMatch[1], 10);
         foundMonth = parseInt(globalYmdMatch[2], 10);
@@ -272,7 +275,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
 
     // 우선순위 4: 전체 텍스트에서 4자리 연도 + 월 (예: 2020년 3월, 2020.03)
     if (!foundYear) {
-      const ymMatch = corrected.match(/(?<![\d-])((?:19|20)\d{2})[-./년\s]+(0?[1-9]|1[0-2])(?![0-9])/);
+      const ymMatch = corrected.match(/(?<![\d-])((?:19|20)\d{2})[-./년\s]+(1[0-2]|0?[1-9])(?![0-9])/);
       if (ymMatch) {
         foundYear = parseInt(ymMatch[1], 10);
         foundMonth = parseInt(ymMatch[2], 10);
@@ -309,7 +312,9 @@ export function parseTagText(rawText: string): ParsedTagResult {
   }
 
   // 2) 규격명 CSV 파싱
-  const specAfterKeyword = fullText.match(/규\s*격\s*명?\s*[:\s]*([^규분취비\r\n]{5,})/i);
+  const specAfterKeyword = fullText.match(
+    /규\s*격\s*명?\s*[:\s]*(.+?)(?=취득|분류|품명|비고|단가|내용연수|운용|설치|※|$)/i
+  );
   let specParts: string[] = [];
 
   if (specAfterKeyword) {
@@ -364,6 +369,20 @@ export function parseTagText(rawText: string): ParsedTagResult {
     }
   }
 
+  // 모델명, 품명, 제조사 후처리 정제 (불필요한 후행 라벨 및 기호 제거)
+  if (modelName) {
+    modelName = modelName
+      .replace(/(?:단가|취득|비고|규격|분류|KKR|선장초|내용연수|운용).*$/i, '')
+      .replace(/[:=,\s]+$/, '')
+      .trim();
+  }
+  if (name) {
+    name = name.replace(/[:=,\s]+$/, '').trim();
+  }
+  if (manufacturer) {
+    manufacturer = manufacturer.replace(/[:=,\s]+$/, '').trim();
+  }
+
   // 품명 fallback
   if (!name) {
     if (fullText.includes('데스크톱') || fullText.includes('컴퓨터')) {
@@ -409,18 +428,21 @@ export function parseTagText(rawText: string): ParsedTagResult {
     }
   }
 
-  const schoolRoomsRegex = /교무실|행정실|급식실|영양실|영양사실|조리실|과학실|컴퓨터실|도서관|도서실|방송실|보건실|돌봄교실|늘봄교실|음악실|미술실|체육관|강당|당직실|인쇄실|회의실|상담실|위클래스|Wee클래스|영어실|어학실|특수학급|특수교실|유치원|교장실|행정실장실|숙직실|서고|문서고|동아리실|학생회실|진로상담실|전산실|스마트교실|무한상상실|메이커스페이스|서버실|초등교무|초등교무센터|초등교무실|중등교무실|교원연구실/;
-
   // RFID 슬래시에서 위치를 못 찾았을 때 비고 행에서 슬래시 구분 위치 탐색
   if (!location) {
     const remarkLineMatch = fullText.match(/비\s*고\s*[:\s]*(.+?)(?=취득|분류|품명|규격|※|$)/i);
     if (remarkLineMatch) {
-      const slashParts = remarkLineMatch[1].split('/').map((p: string) => p.trim());
+      const slashParts = remarkLineMatch[1].split(/[\/|]/).map((p: string) => p.trim());
       for (const part of slashParts) {
-        if (/\d학년/.test(part) || schoolRoomsRegex.test(part)) {
-          location = part.replace(/\(.*?\)/g, '').trim();
-          if (!location) continue; // 괄호만 있는 경우 건너뜀
+        const roomM = part.match(schoolRoomsRegex);
+        if (roomM) {
+          location = roomM[0];
           break;
+        }
+        if (/\d학년/.test(part)) {
+          const gm = part.match(/(\d학년\s*\d*반?교실?)/);
+          location = gm ? gm[1] : (part.match(/(\d학년)/)?.[1] + '교실' || part.replace(/\(.*?\)/g, '').trim());
+          if (location) break;
         }
       }
       // 슬래시 구분이 없을 때 비고 전체에서 위치 키워드 탐색
