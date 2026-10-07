@@ -150,8 +150,17 @@ export default async function handler(req: Request) {
 
     if (!visionResponse.ok || visionData.error) {
       console.error('Google Vision API Error:', visionData.error);
-      return new Response(JSON.stringify({ error: visionData.error?.message || 'Vision API failed' }), {
+      return new Response(JSON.stringify({ error: visionData.error?.message || 'Vision API 호출에 실패했습니다.' }), {
         status: visionResponse.status || 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (visionData.responses?.[0]?.error) {
+      const imgErr = visionData.responses[0].error;
+      console.error('Google Vision Response Error:', imgErr);
+      return new Response(JSON.stringify({ error: `Vision 인식 오류: ${imgErr.message || imgErr.code}` }), {
+        status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -159,7 +168,7 @@ export default async function handler(req: Request) {
     // 인식된 전체 텍스트 추출 (fullTextAnnotation 우선 추출로 고밀도 라벨 인식)
     const fullTextAnnotation = visionData.responses?.[0]?.fullTextAnnotation;
     const textAnnotations = visionData.responses?.[0]?.textAnnotations;
-    const fullText = fullTextAnnotation?.text || (textAnnotations && textAnnotations.length > 0 ? textAnnotations[0].description : '');
+    const fullText = fullTextAnnotation?.text || (textAnnotations && textAnnotations.length > 0 ? textAnnotations[0].description : '') || '';
 
     return new Response(JSON.stringify({ text: fullText }), {
       status: 200,

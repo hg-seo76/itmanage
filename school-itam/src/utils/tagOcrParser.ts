@@ -90,14 +90,22 @@ export function parseTagText(rawText: string): ParsedTagResult {
   // 1. 다중 스티커(타 학교 전입 전 구 라벨 + 선장초등학교 현 라벨) 감지 및 타겟팅
   // KKR- 또는 선장초등학교 RFID 라벨이 감지되면 해당 영역을 최우선으로 타겟팅
   let targetText = rawText;
-  if (/선장초|선장|아산\s*선장/.test(rawText) || /KKR[-\u2013]/i.test(rawText)) {
+  if (/선장초|선장|아산\s*선장/i.test(rawText) || /KKR[-\u2013]/i.test(rawText)) {
     const kkrPos = rawText.search(/KKR[-\u2013]/i);
-    const sunjangPos = rawText.search(/선장초등학교|선장초/);
+    const sunjangPos = rawText.search(/선장초등학교|선장초/i);
     const keyPos = kkrPos !== -1 ? kkrPos : sunjangPos;
     if (keyPos !== -1) {
       // keyPos 앞의 가장 가까운 "분류번호" 또는 시작점으로 슬라이스
       const startIdx = Math.max(0, rawText.lastIndexOf('분류번호', keyPos));
       targetText = rawText.slice(startIdx);
+
+      // 이전 학교(아산공수초 등)가 여전히 앞에 포함되어 있다면, 두 번째 분류번호로 슬라이스하여 완벽 분리
+      if (/아산공수|공수초/i.test(targetText)) {
+        const secondClassIdx = targetText.indexOf('분류번호', 5);
+        if (secondClassIdx !== -1) {
+          targetText = targetText.slice(secondClassIdx);
+        }
+      }
     }
   }
 
@@ -527,6 +535,19 @@ function canvasToBase64(canvas: HTMLCanvasElement): string {
   return dataUrl.split(',')[1];
 }
 
+function fileToBase64Direct(file: File | Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 /**
  * 이미지 파일 → Google Cloud Vision API → 파싱 결과 반환
  */
@@ -534,17 +555,22 @@ export async function scanTagImage(
   imageFile: File | Blob | string,
   onProgress?: (progress: number, status: string) => void
 ): Promise<ParsedTagResult> {
-  if (onProgress) onProgress(0.1, '📷 이미지 전처리 중 (용량 최적화 및 흑백 변환)...');
+  if (onProgress) onProgress(0.1, '📷 이미지 준비 중...');
 
   let base64Image = '';
 
   if (imageFile instanceof File || imageFile instanceof Blob) {
     try {
-      const preprocessed = await preprocessImageForOcr(imageFile);
-      base64Image = canvasToBase64(preprocessed);
+      // 3.8MB 이하의 경우 카메라 원본 해상도와 EXIF 회전 정보를 100% 보존하기 위해 원본 직접 전송
+      if (imageFile.size > 0 && imageFile.size <= 3.8 * 1024 * 1024) {
+        base64Image = await fileToBase64Direct(imageFile);
+      } else {
+        const preprocessed = await preprocessImageForOcr(imageFile);
+        base64Image = canvasToBase64(preprocessed);
+      }
     } catch (preprocessErr) {
-      console.warn('이미지 전처리 실패:', preprocessErr);
-      throw new Error('이미지 처리 중 오류가 발생했습니다.');
+      console.warn('이미지 전처리 실패, 원본 직접 전송 시도:', preprocessErr);
+      base64Image = await fileToBase64Direct(imageFile);
     }
   } else {
     throw new Error('문자열 URL 이미지는 지원하지 않습니다. 파일 객체가 필요합니다.');

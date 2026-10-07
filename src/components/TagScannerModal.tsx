@@ -248,6 +248,19 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                 <Edit3 className="w-3.5 h-3.5 text-slate-400 ml-auto" />
               </div>
 
+              {/* ⚠️ 텍스트 미감지 시 안내 배너 */}
+              {(!rawOcrText || !rawOcrText.trim()) && (
+                <div className="bg-amber-950/60 border border-amber-500/40 rounded-xl p-3 text-xs text-amber-200 space-y-1 animate-fade-in">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-300">
+                    <span>⚠️ 사진에서 글자가 감지되지 않았습니다</span>
+                  </div>
+                  <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                    • 카메라 빛 반사(라벨 유광 코팅의 형광등 반사)나 초점 흐림으로 인해 글자가 읽히지 않았을 수 있습니다.<br />
+                    • 빛 반사를 피하여 글자가 정면으로 수평이 되도록 다시 촬영해 보세요.
+                  </p>
+                </div>
+              )}
+
               {/* ★ 핵심 집중: M0000 자산번호 우선 감지 & 선택 카드 ★ */}
               <div className="bg-gradient-to-r from-blue-950/90 via-slate-900 to-indigo-950/90 border border-cyan-500/40 rounded-xl p-3.5 space-y-2.5 shadow-lg">
                 <div className="flex items-center justify-between">
