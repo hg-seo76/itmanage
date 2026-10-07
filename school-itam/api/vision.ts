@@ -36,7 +36,11 @@ export default async function handler(req: Request) {
     const geminiPrompt = `학교 정보화기기(컴퓨터, 모니터, 노트북, 태블릿, 프린터 등)의 물품 자산 스티커/RFID 태그 사진입니다.
 다음 규칙에 따라 정확하게 정보를 분석하여 반드시 순수 JSON 객체 하나만 반환하세요:
 1. 기기에 이전 학교(예: 아산공수초등학교 등) 스티커와 현재 학교(선장초등학교 또는 충남교육청 KKR- RFID 태그) 스티커가 함께 붙어있다면, 반드시 현재 관리 주체인 "선장초등학교" 및 "KKR-로 시작하는 RFID 태그"의 정보를 최우선으로 추출하세요.
-2. 자산번호(assetId): "M"으로 시작하는 고유 자산번호 (예: M000004435, M000000009). KKR- 슬래시 항목(예: KKR-... / MO00004435 / 급식실)에 포함된 M번호를 최우선으로 하되 알파벳 O는 숫자 0으로 교정하세요.
+2. [★가장 중요★ 자산번호(assetId)]:
+   - 학교 물품관리에서 가장 핵심인 고유 식별자는 "M0000" (또는 "m0000", 소문자 포함)으로 시작하는 번호(예: M000004435, M000000009 등)입니다.
+   - 사진 전체에서 'M' 뒤에 0이 여러 개 이어지는 M0000 형태의 자산번호를 집중 탐색하여 반드시 추출하세요!
+   - RFID 슬래시 항목(예: KKR-... / MO00004435 / 급식실)이나 '고유번호', '물품번호', 바코드 밑에 인쇄된 M번호를 샅샅이 확인하세요.
+   - 알파벳 'O', 'o', 'D', 'Q'가 숫자 '0'(영)으로 잘못 읽히기 쉬우므로, M 뒤의 연속 문자는 숫자 0으로 교정하여 반드시 완전한 "M0000..." 형식으로 만드세요.
 3. 품명(name): 데스크톱컴퓨터, 액정모니터, 노트북, 태블릿, 프린터, 디지털카메라 등
 4. 기기 구분(category): 'desktop_pc' | 'monitors' | 'smart_laptop' | 'teacher_laptop' | 'smart_tablet' | 'printer' | 'digital_camera' | 'network_ap' | 'server' | 'etc' 중 하나
 5. 제조사(manufacturer): 삼보컴퓨터, 삼성전자, LG전자, 다나와컴퓨터, HP, Lenovo 등
@@ -94,6 +98,12 @@ export default async function handler(req: Request) {
           const cleanJson = candidateText.replace(/```json|```/g, '').trim();
           const parsed = JSON.parse(cleanJson);
           if (parsed && (parsed.assetId || parsed.name || parsed.modelName || parsed.manufacturer)) {
+            // M0000 자산번호 대소문자 및 O->0 집중 정규화
+            if (parsed.assetId) {
+              parsed.assetId = String(parsed.assetId).trim().toUpperCase().replace(/^M[O0ODQ\d\s-]+/i, (m: string) => {
+                return 'M' + m.slice(1).replace(/[\s-]/g, '').replace(/[ODQo]/gi, '0');
+              });
+            }
             return new Response(JSON.stringify({ parsed, source: 'gemini-vision' }), {
               status: 200,
               headers: { 'Content-Type': 'application/json' },

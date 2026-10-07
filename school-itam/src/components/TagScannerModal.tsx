@@ -7,7 +7,13 @@ import {
   RefreshCw,
   Edit3
 } from 'lucide-react';
-import { scanTagImage, extractOcrTokens, type ParsedTagResult } from '../utils/tagOcrParser';
+import { 
+  scanTagImage, 
+  extractOcrTokens, 
+  findAllM0000Candidates, 
+  normalizeM0000Code, 
+  type ParsedTagResult 
+} from '../utils/tagOcrParser';
 import type { DeviceCategory } from '../types/asset';
 
 interface TagScannerModalProps {
@@ -63,6 +69,13 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
   const ocrTokens = useMemo(() => {
     return extractOcrTokens(rawOcrText);
   }, [rawOcrText]);
+
+  const mCandidates = useMemo(() => {
+    const list = parsedResult?.mCandidates && parsedResult.mCandidates.length > 0
+      ? parsedResult.mCandidates
+      : findAllM0000Candidates(rawOcrText);
+    return Array.from(new Set(list));
+  }, [parsedResult, rawOcrText]);
 
   if (!isOpen) return null;
 
@@ -132,7 +145,11 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
   };
 
   const setField = (field: keyof EditableResult, value: string | number) => {
-    setEditableResult(prev => prev ? { ...prev, [field]: value } : prev);
+    let finalValue = value;
+    if (field === 'assetId' && typeof value === 'string') {
+      finalValue = normalizeM0000Code(value);
+    }
+    setEditableResult(prev => prev ? { ...prev, [field]: finalValue } : prev);
   };
 
   const assignTokenToField = (field: keyof EditableResult, value: string) => {
@@ -224,11 +241,71 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
           {/* ★ 핵심: 편집 가능한 결과 폼 */}
           {editableResult && !isScanning && (
-            <div className="space-y-3 animate-fade-in">
+            <div className="space-y-3.5 animate-fade-in">
               <div className="flex items-center gap-2 pb-1">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span className="text-xs font-bold text-emerald-400">AI 분석 완료 — 잘못된 항목은 직접 수정하세요</span>
                 <Edit3 className="w-3.5 h-3.5 text-slate-400 ml-auto" />
+              </div>
+
+              {/* ★ 핵심 집중: M0000 자산번호 우선 감지 & 선택 카드 ★ */}
+              <div className="bg-gradient-to-r from-blue-950/90 via-slate-900 to-indigo-950/90 border border-cyan-500/40 rounded-xl p-3.5 space-y-2.5 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-1.5 rounded-lg bg-blue-500/20 text-cyan-300 border border-blue-400/30 text-base">
+                      🏷️
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">핵심 자산번호 (M0000)</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-400/30">
+                          에듀파인 고유번호
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 mt-0.5">
+                        {editableResult.assetId ? (
+                          <span>현재 등록값: <strong className="text-cyan-300 font-mono text-sm tracking-wider font-bold">{editableResult.assetId}</strong></span>
+                        ) : (
+                          <span className="text-amber-400 font-medium">사진 속 M0000 번호 칩을 터치하여 지정하세요.</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  {editableResult.assetId && (
+                    <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1 bg-emerald-950/50 px-2 py-1 rounded-lg border border-emerald-500/30">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> M0000 지정됨
+                    </span>
+                  )}
+                </div>
+
+                {/* 사진에서 감지된 M0000 번호 후보 목록 */}
+                {mCandidates.length > 0 && (
+                  <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] text-slate-400 font-medium">사진에서 발견된 M번호:</span>
+                    {mCandidates.map((mCode, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setField('assetId', mCode);
+                          setToastMsg(`자산번호를 "${mCode}"(으)로 선택했습니다.`);
+                          setTimeout(() => setToastMsg(null), 2500);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border transition-all flex items-center gap-1.5 ${
+                          editableResult.assetId === mCode
+                            ? 'bg-blue-600 text-white border-cyan-400 shadow-md shadow-blue-500/50 scale-105 ring-2 ring-cyan-400/60'
+                            : 'bg-slate-800 text-cyan-300 border-slate-700 hover:bg-slate-700 hover:border-cyan-400 hover:text-white'
+                        }`}
+                      >
+                        <span>🏷️</span>
+                        <span>{mCode}</span>
+                        {editableResult.assetId === mCode && (
+                          <span className="text-[10px] text-cyan-200 font-normal">● 선택됨</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 💡 원터치 입력 칩 패널 */}
@@ -237,12 +314,12 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-blue-300">
                       <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>사진에서 감지된 단어/문구 (원터치 자동 입력)</span>
+                      <span>사진 인식 단어 조각 (터치 시 선택 칸에 자동 입력)</span>
                     </div>
                     <span className="text-[10px] text-slate-400">
                       {focusedField ? (
                         <span className="text-cyan-400 font-semibold">
-                          선택된 칸: [{fieldNameMap[focusedField]}]
+                          입력 대상: [{fieldNameMap[focusedField]}]
                         </span>
                       ) : (
                         '칩 클릭 후 채울 항목 선택'
@@ -252,21 +329,27 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
 
                   {/* 단어 칩 목록 */}
                   <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1 bg-slate-900/60 rounded-lg border border-slate-800">
-                    {ocrTokens.map((token, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleTokenClick(token)}
-                        title={`클릭 시 [${focusedField ? fieldNameMap[focusedField] : '선택 칸'}]에 입력`}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium border transition-all ${
-                          selectedToken === token
-                            ? 'bg-blue-600 text-white border-blue-400 shadow-sm shadow-blue-500/50 scale-105'
-                            : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-500 hover:text-white'
-                        }`}
-                      >
-                        {token}
-                      </button>
-                    ))}
+                    {ocrTokens.map((token, idx) => {
+                      const isM = /^M0{2,}\d+/i.test(token);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleTokenClick(token)}
+                          title={`클릭 시 [${focusedField ? fieldNameMap[focusedField] : '선택 칸'}]에 입력`}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium border transition-all ${
+                            selectedToken === token
+                              ? 'bg-blue-600 text-white border-blue-400 shadow-sm shadow-blue-500/50 scale-105'
+                              : isM
+                              ? 'bg-cyan-950/80 text-cyan-200 border-cyan-500/60 font-bold hover:bg-cyan-900'
+                              : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-500 hover:text-white'
+                          }`}
+                        >
+                          {isM && <span className="mr-1">🏷️</span>}
+                          {token}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* 선택된 칩에 대한 퀵 배정 버튼 바 */}
@@ -333,20 +416,34 @@ export const TagScannerModal: React.FC<TagScannerModalProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 {/* 자산번호 */}
                 <div className="col-span-2">
-                  <label className={labelClass}>
-                    자산 번호
-                    {focusedField === 'assetId' && (
-                      <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={labelClass}>
+                      자산 번호 (M0000...)
+                      {focusedField === 'assetId' && (
+                        <span className="text-[10px] text-cyan-400 font-normal ml-1.5">● 입력 대상</span>
+                      )}
+                    </label>
+                    <span className="text-[10px] text-cyan-400 font-semibold">
+                      ★ 학교 에듀파인 핵심 식별자
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      className={`${inputClass} font-mono font-bold text-sm text-cyan-300 pr-24 ${
+                        focusedField === 'assetId' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''
+                      }`}
+                      value={editableResult.assetId}
+                      onFocus={() => setFocusedField('assetId')}
+                      onClick={() => setFocusedField('assetId')}
+                      onChange={e => setField('assetId', e.target.value)}
+                      placeholder="예: M000004435 (위 감지 칩 클릭 시 즉시 입력)"
+                    />
+                    {editableResult.assetId && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-cyan-300 border border-blue-400/30 font-semibold pointer-events-none">
+                        M0000 형식
+                      </span>
                     )}
-                  </label>
-                  <input
-                    className={`${inputClass} ${focusedField === 'assetId' ? 'ring-2 ring-blue-500 border-blue-400 bg-slate-900/90' : ''}`}
-                    value={editableResult.assetId}
-                    onFocus={() => setFocusedField('assetId')}
-                    onClick={() => setFocusedField('assetId')}
-                    onChange={e => setField('assetId', e.target.value)}
-                    placeholder="예: M000012345 (미인식 시 직접 입력 또는 위 칩 클릭)"
-                  />
+                  </div>
                 </div>
 
                 {/* 품명 */}

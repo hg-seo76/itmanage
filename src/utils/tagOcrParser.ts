@@ -14,6 +14,47 @@ export interface ParsedTagResult {
   classificationNo?: string;
   remarks?: string;
   rawText: string;
+  mCandidates?: string[];
+}
+
+/**
+ * M0000 계열 자산번호 정규화 (대소문자 무관, 공백/하이픈 제거, O/o/D/Q -> 0 변환)
+ * 예: "mo00004435" -> "M000004435", "M-000000009" -> "M000000009", "M 0000 1234" -> "M00001234"
+ */
+export function normalizeM0000Code(str: string): string {
+  if (!str) return '';
+  let s = str.trim();
+  // 접두사 오인식 (IVI, 1V1, IV, RN 등) 보정
+  s = s.replace(/^(?:IVI|IV1|1VI|1V1|RN|rn)(?=[O0oDQ\s\d])/i, 'M');
+  if (/^[Mm]/i.test(s)) {
+    const afterM = s.slice(1).replace(/[\s-]/g, '').replace(/[OoDQ]/g, '0');
+    return 'M' + afterM.toUpperCase();
+  }
+  return s.toUpperCase();
+}
+
+/**
+ * 텍스트 전체에서 M0000 (또는 유사 패턴) 자산번호 후보들을 모두 탐색하여 유효 순위별로 정렬 반환
+ */
+export function findAllM0000Candidates(text: string): string[] {
+  if (!text) return [];
+  // M 또는 m 뒤에 O,0,D,Q,공백,하이픈이 3개 이상 오고 숫자가 오는 패턴
+  const matches = Array.from(
+    text.matchAll(/\b(?:[Mm]|(?:IVI|1V1|IV))[\s-]?[O0oDQ\d-]{4,}\b/gi)
+  );
+
+  const candidates: string[] = [];
+  for (const m of matches) {
+    const normalized = normalizeM0000Code(m[0]);
+    // M00... 형태이고 최소 6글자 이상인 경우
+    if (/^M0{2,}\d+$/.test(normalized) && normalized.length >= 6) {
+      if (!candidates.includes(normalized)) {
+        candidates.push(normalized);
+      }
+    }
+  }
+
+  return candidates;
 }
 
 /**
@@ -21,8 +62,10 @@ export interface ParsedTagResult {
  */
 function correctOcrText(text: string): string {
   return text
-    // M0000... 형태에서 O를 0으로 일괄 치환 (MO00004435, MOOOOO1234 등 다중 O 완벽 대응)
-    .replace(/\bM[O0\d]{5,}\b/gi, (m) => 'M' + m.slice(1).replace(/O/gi, '0'))
+    // 1. M0000... 형태 집중 교정 (공백, 하이픈, O, Q, D 오인식 일괄 0으로 치환)
+    .replace(/\b(?:[Mm]|(?:IVI|1V1|IV))[\s-]?[O0oDQ\d]{4,}\b/gi, (m) => normalizeM0000Code(m))
+    // 2. KKR- 슬래시 내부의 MO000... 형태 교정
+    .replace(/(\/\s*)([Mm][O0oDQ\d]{4,})(\s*\/)/gi, (_, p1, id, p2) => p1 + normalizeM0000Code(id) + p2)
     .replace(/[Oo](?=\d)/g, '0')
     .replace(/(?<=\d)[Oo]/g, '0')
     .replace(/\bO\b/g, '0')
@@ -41,6 +84,9 @@ function correctOcrText(text: string): string {
  *   - O(알파벳)과 0(숫자) 혼동 빈번
  */
 export function parseTagText(rawText: string): ParsedTagResult {
+  // 전체 M0000 후보군 사전 추출
+  const rawMCandidates = findAllM0000Candidates(rawText);
+
   // 1. 다중 스티커(타 학교 전입 전 구 라벨 + 선장초등학교 현 라벨) 감지 및 타겟팅
   // KKR- 또는 선장초등학교 RFID 라벨이 감지되면 해당 영역을 최우선으로 타겟팅
   let targetText = rawText;
@@ -72,8 +118,8 @@ export function parseTagText(rawText: string): ParsedTagResult {
   const kkrMatch = corrected.match(/(KKR[-\u2013][A-Z0-9-]+)/i);
 
   if (kkrSlashMatch) {
-    const rawId = kkrSlashMatch[2].replace(/[Oo]/g, '0');
-    if (/^M\d{5,}/i.test(rawId)) {
+    const rawId = normalizeM0000Code(kkrSlashMatch[2]);
+    if (/^M0{2,}\d+/i.test(rawId) || /^M\d{5,}/i.test(rawId)) {
       rfidAssetId = rawId.toUpperCase();
     }
     const locCandidate = kkrSlashMatch[3]
@@ -87,24 +133,47 @@ export function parseTagText(rawText: string): ParsedTagResult {
   }
 
   // ─────────────────────────────────────────────
-  // 3. 자산번호 추출 (RFID 슬래시 매칭 최우선)
+  // 3. 자산번호 추출 (★ M0000 고유번호 최우선 집중 탐색 ★)
   // ─────────────────────────────────────────────
-  let assetId = rfidAssetId;
-  // 명시적 키워드 (고유번호, 물품번호, 자산번호, 바코드, RFID 등) 매칭
+  let assetId = '';
+
+  // 1) RFID 슬래시 매칭에서 추출된 ID가 M0000 형식인 경우 최우선 확정
+  if (rfidAssetId && /^M0{2,}\d+/i.test(rfidAssetId)) {
+    assetId = rfidAssetId;
+  }
+
+  // 2) 타겟 영역(현재 학교 스티커) 내에서 M0000 계열 후보 탐색
   if (!assetId) {
-    const explicitIdMatch = corrected.match(
-      /(?:고유\s*번호|물품\s*번호|자산\s*번호|RFID|바코드)\s*[:\s]*([A-Z0-9-]+)/i
-    );
-    if (explicitIdMatch && explicitIdMatch[1].length >= 4) {
-      assetId = explicitIdMatch[1].replace(/[Oo]/g, '0').toUpperCase();
+    const targetCandidates = findAllM0000Candidates(targetText);
+    if (targetCandidates.length > 0) {
+      assetId = targetCandidates[0];
     }
   }
+
+  // 3) 명시적 키워드 (고유번호, 물품번호, 자산번호, RFID, 바코드) 직후의 M0000 또는 번호
+  if (!assetId) {
+    const explicitIdMatch = corrected.match(
+      /(?:고유\s*번호|물품\s*번호|자산\s*번호|RFID|바코드)\s*[:\s]*([A-Za-z0-9-]+)/i
+    );
+    if (explicitIdMatch && explicitIdMatch[1].length >= 4) {
+      const norm = normalizeM0000Code(explicitIdMatch[1]);
+      assetId = norm;
+    }
+  }
+
+  // 4) 원본 전체 텍스트(rawText) 전역에서 M0000 후보 탐색
+  if (!assetId && rawMCandidates.length > 0) {
+    // 복수 스티커가 있을 때 보통 최신 스티커(선장초)가 후반부에 오므로 마지막 후보 우선
+    assetId = rawMCandidates[rawMCandidates.length - 1];
+  }
+
+  // 5) 일반 M 번호 fallback (M0... 이상)
   if (!assetId) {
     const mMatch =
-      corrected.match(/\b(M0{3,}\d+)\b/i) ||
+      corrected.match(/\b(M0{2,}\d+)\b/i) ||
       corrected.match(/\b(M\d{7,12})\b/i) ||
       corrected.match(/\b(M\d{5,})\b/i);
-    assetId = mMatch ? mMatch[1].toUpperCase() : '';
+    assetId = mMatch ? normalizeM0000Code(mMatch[1]) : '';
   }
 
   // ─────────────────────────────────────────────
@@ -421,6 +490,7 @@ export function parseTagText(rawText: string): ParsedTagResult {
     classificationNo,
     remarks: remarkParts.length > 0 ? remarkParts.join(' | ') : 'RFID 태그 AI 스캔 자동 등록',
     rawText,
+    mCandidates: rawMCandidates,
   };
 }
 
@@ -498,8 +568,9 @@ export async function scanTagImage(
   if (data.parsed) {
     const p = data.parsed;
     if (onProgress) onProgress(1.0, '✨ 최신 Vision AI 분석 완료!');
+    const parsedAssetId = normalizeM0000Code(p.assetId || '');
     return {
-      assetId: p.assetId || '',
+      assetId: parsedAssetId,
       name: p.name || '',
       category: p.category || 'desktop_pc',
       manufacturer: p.manufacturer || '',
@@ -511,6 +582,7 @@ export async function scanTagImage(
       classificationNo: p.classificationNo,
       remarks: p.remarks || 'Vision AI 태그 자동 분석 등록',
       rawText: JSON.stringify(p, null, 2),
+      mCandidates: parsedAssetId ? [parsedAssetId] : [],
     };
   }
 
@@ -526,6 +598,9 @@ export async function scanTagImage(
  */
 export function extractOcrTokens(rawText: string): string[] {
   if (!rawText) return [];
+
+  // ★ 0순위: M0000 계열 고유 자산번호 최우선 수집
+  const mCodes = findAllM0000Candidates(rawText);
 
   // 불필요한 라벨성 단어 제외 필터
   const skipPattern = /^(이\s*물품은|선장초등학교|아산공수초등학교|자산입니다|비고|규격명?|품명|분류번호|취득일자?|취득단가|단가|내용연수|운용부서|설치장소|고유번호|물품번호|규격|확인|등록)$/i;
@@ -555,8 +630,8 @@ export function extractOcrTokens(rawText: string): string[] {
     }
   });
 
-  // 중복 제거 및 정제
-  const unique = Array.from(new Set([...segments, ...words]));
+  // 중복 제거 및 정제 (M0000 계열이 최상단에 오도록 순서 유지)
+  const unique = Array.from(new Set([...mCodes, ...segments, ...words]));
   return unique.filter(t => t.length >= 2 && !/^\d{1}$/.test(t));
 }
 
