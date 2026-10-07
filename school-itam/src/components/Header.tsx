@@ -1,8 +1,6 @@
 import React from 'react';
 import { 
   Search, 
-  ShieldCheck, 
-  ShieldAlert, 
   Printer, 
   RotateCcw, 
   UserCheck,
@@ -18,8 +16,6 @@ import type { ViewTab } from '../types/asset';
 interface HeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  privacyMode: boolean;
-  onTogglePrivacy: () => void;
   onResetData: () => void;
   onPrint: () => void;
   onOpenAuthModal: () => void;
@@ -33,8 +29,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   onSearchChange,
-  privacyMode,
-  onTogglePrivacy,
   onResetData,
   onPrint,
   onOpenAuthModal,
@@ -165,29 +159,6 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Remaining Actions */}
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-        {/* Privacy Mode Toggle */}
-        <button
-          onClick={onTogglePrivacy}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition-all ${
-            privacyMode
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-          }`}
-          title="개인정보 및 네트워크 IP/암호 마스킹 토글"
-        >
-          {privacyMode ? (
-            <>
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>보안 마스킹 ON</span>
-            </>
-          ) : (
-            <>
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span>보안 마스킹 OFF</span>
-            </>
-          )}
-        </button>
-
         {/* Print Button */}
         <button
           onClick={onPrint}

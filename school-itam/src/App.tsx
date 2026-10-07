@@ -24,7 +24,6 @@ import {
 } from './services/firestoreAssets';
 
 const STORAGE_KEY_ASSETS = 'school_itam_assets_v2';
-const STORAGE_KEY_PRIVACY = 'school_itam_privacy_v2';
 const STORAGE_KEY_SHEET_URL = 'school_itam_sheet_url_v2';
 
 const AppContent: React.FC = () => {
@@ -64,15 +63,6 @@ const AppContent: React.FC = () => {
     setAssetModalInitialData({ location, assignedRole });
     setIsAssetFormModalOpen(true);
   };
-
-  // 2. Privacy Mode (Default: true per strict security rules)
-  const [privacyMode, setPrivacyMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_PRIVACY);
-    if (saved !== null) {
-      return saved === 'true';
-    }
-    return true; // Strict zero-PII default
-  });
 
   // 3. UI State
   const [currentTab, setCurrentTab] = useState<ViewTab>('building_map');
@@ -149,10 +139,6 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ASSETS, JSON.stringify(assets));
   }, [assets]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PRIVACY, String(privacyMode));
-  }, [privacyMode]);
 
   useEffect(() => {
     if (savedSheetUrl) {
@@ -250,10 +236,8 @@ const AppContent: React.FC = () => {
   const handleResetData = () => {
     localStorage.removeItem(STORAGE_KEY_ASSETS);
     localStorage.removeItem(STORAGE_KEY_SHEET_URL);
-    localStorage.removeItem(STORAGE_KEY_PRIVACY);
 
     setAssets(INITIAL_ASSETS);
-    setPrivacyMode(true);
     setShowMismatchOnly(false);
     setSearchQuery('');
     setSavedSheetUrl('');
@@ -328,8 +312,6 @@ const AppContent: React.FC = () => {
       <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        privacyMode={privacyMode}
-        onTogglePrivacy={() => setPrivacyMode(prev => !prev)}
         onResetData={handleResetData}
         onPrint={handlePrint}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
@@ -361,7 +343,7 @@ const AppContent: React.FC = () => {
             {currentTab === 'building_map' && (
               <BuildingMapView
                 assets={filteredAssets}
-                privacyMode={privacyMode}
+                privacyMode={false}
                 onRegisterAssetForMember={handleOpenRegisterModalForMember}
                 onEditAsset={handleOpenEditAssetModal}
                 onDeleteAsset={handleDeleteAsset}
