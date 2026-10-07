@@ -329,7 +329,7 @@ const AppContent: React.FC = () => {
       />
 
         {/* Content Container */}
-        <main className="p-8 flex-1 overflow-y-auto">
+        <main className="p-4 flex-1 overflow-y-auto">
           {/* Top 4 KPI Cards */}
           <KpiCards
             assets={assets}

@@ -27,7 +27,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
   const disposalCount = disposalAssets.length;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8 no-print">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-4 no-print">
       {/* 1. Total Assets */}
       <div className="glass-panel p-5 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition-all duration-300">
         <div className="absolute right-3 -bottom-3 text-slate-800/40 group-hover:text-slate-700/40 transition-colors">
