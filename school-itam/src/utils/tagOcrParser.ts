@@ -24,10 +24,14 @@ export interface ParsedTagResult {
 export function normalizeM0000Code(str: string): string {
   if (!str) return '';
   let s = str.trim();
-  // 접두사 오인식 (IVI, 1V1, IV, RN 등) 보정
-  s = s.replace(/^(?:IVI|IV1|1VI|1V1|RN|rn)(?=[O0oDQ\s\d])/i, 'M');
+  // 접두사 오인식 (IVI, 1V1, IV, RN, N 등) 보정
+  s = s.replace(/^(?:IVI|IV1|1VI|1V1|RN|rn|N|n)(?=[O0oDQ\s\d])/i, 'M');
   if (/^[Mm]/i.test(s)) {
-    const afterM = s.slice(1).replace(/[\s\-_.]/g, '').replace(/[OoDQ]/g, '0');
+    let afterM = s.slice(1).replace(/[\s\-_.]/g, '').replace(/[OoDQ]/g, '0');
+    // 학교 표준 10자리(M + 9자리 숫자) 자동 0 패딩 보정 (예: OCR이 0을 몇 개 빼먹은 경우 M004447 -> M000004447)
+    if (afterM.length >= 4 && afterM.length < 9) {
+      afterM = afterM.padStart(9, '0');
+    }
     return 'M' + afterM.toUpperCase();
   }
   return s.toUpperCase();
@@ -38,15 +42,41 @@ export function normalizeM0000Code(str: string): string {
  */
 export function findAllM0000Candidates(text: string): string[] {
   if (!text) return [];
-  // M 또는 유사 접두사(IVI, 1V1, IV 등) 뒤에 0, O, D, Q 및 공백/하이픈/점 등이 오고 숫자가 오는 패턴 (중간 공백 완벽 지원)
+  // 1) 표준 M/N/IVI + 000... 패턴 (중간 공백 완벽 지원)
   const matches = Array.from(
-    text.matchAll(/(?:[Mm]|IVI|1V1|IV)[\s\-_.]*[0OoDQ]{3,8}[\s\-_.]*\d{1,6}/gi)
+    text.matchAll(/(?:[MmNn]|IVI|1V1|IV)[\s\-_.]*[0OoDQ]{2,8}[\s\-_.]*\d{1,6}/gi)
   );
 
   const candidates: string[] = [];
   for (const m of matches) {
     const normalized = normalizeM0000Code(m[0]);
     // M00... 형태이고 최소 6글자 이상인 경우
+    if (/^M0{2,}\d+$/.test(normalized) && normalized.length >= 6) {
+      if (!candidates.includes(normalized)) {
+        candidates.push(normalized);
+      }
+    }
+  }
+
+  // 2) KKR- 슬래시 바로 뒤의 ID 토큰 탐색 (예: KKR-... / MO00004447 / ...)
+  const kkrSlashTokens = Array.from(
+    text.matchAll(/KKR[\s\-_A-Z0-9]+?[\/|]\s*([A-Za-z0-9\s]{4,15})[\/|]/gi)
+  );
+  for (const km of kkrSlashTokens) {
+    const normalized = normalizeM0000Code(km[1]);
+    if (/^M0{2,}\d+$/.test(normalized) && normalized.length >= 6) {
+      if (!candidates.includes(normalized)) {
+        candidates.push(normalized);
+      }
+    }
+  }
+
+  // 3) 분리형 태그: /숫자(4~8자리)/교실 형태 탐색 (M이 완전히 누락되거나 N으로 분리된 경우도 복원)
+  const roomPrecedingTokens = Array.from(
+    text.matchAll(/[\/|\n\s](0{2,8}\d{2,6})\s*[\/|]\s*(?:[가-힣\d\s]+(?:교실|실|관|부서|센터))/gi)
+  );
+  for (const rm of roomPrecedingTokens) {
+    const normalized = normalizeM0000Code('M' + rm[1]);
     if (/^M0{2,}\d+$/.test(normalized) && normalized.length >= 6) {
       if (!candidates.includes(normalized)) {
         candidates.push(normalized);
@@ -325,9 +355,11 @@ export function parseTagText(rawText: string): ParsedTagResult {
   let modelName = '';
 
   // 1) 라벨에 명시된 "품명" 우선 추출 (예: 품명 LCD 패널 또는 모니터, 품명 데스크톱컴퓨터)
-  const explicitNameMatch = fullText.match(/품\s*명\s*[:\s]*([^\r\n규분취비,\t]{2,})/i);
+  const explicitNameMatch = fullText.match(
+    /품\s*명\s*[:\s]*(.+?)(?=규격|분류|취득|비고|단가|내용연수|운용|설치|KKR|※|$)/i
+  );
   if (explicitNameMatch && explicitNameMatch[1].trim()) {
-    name = explicitNameMatch[1].trim();
+    name = explicitNameMatch[1].replace(/^[•*·\s]+/, '').replace(/[:=,\s]+$/, '').trim();
   }
 
   // 1-2) 분류번호 바로 다음 줄/단어에 품명이 위치한 레이아웃 지원
