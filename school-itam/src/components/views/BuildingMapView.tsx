@@ -922,7 +922,6 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
                   </span>
                   <div>
                     <h3 className="font-extrabold text-sm text-slate-100">{floor.name}</h3>
-                    <p className="text-[11px] text-slate-400">{floor.description}</p>
                   </div>
                 </div>
                 <span className="text-xs text-slate-400 font-medium">
