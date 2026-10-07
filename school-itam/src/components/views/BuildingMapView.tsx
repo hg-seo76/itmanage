@@ -615,10 +615,10 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
     : buildingConfig.filter(f => f.floor === selectedFloor);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header Banner & Filter Controls */}
-      <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 backdrop-blur-md shadow-xl">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+      <div className="bg-slate-900/80 px-4 py-3 rounded-2xl border border-slate-800 backdrop-blur-md shadow-xl">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-3">
           <div>
             <h2 className="text-2xl font-black text-slate-100 flex items-center gap-3">
               <div className="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
@@ -898,7 +898,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
       </div>
 
       {/* Floor Sections */}
-      <div className="space-y-8">
+      <div className="space-y-4">
         {visibleFloors.map(floor => {
           const is1F = floor.floor === 1;
           const is2F = floor.floor === 2;
