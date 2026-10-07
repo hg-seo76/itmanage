@@ -28,6 +28,7 @@ import {
   Copy,
   Presentation,
   Camera,
+  Network,
 } from 'lucide-react';
 import { isAssetInUse, type Asset } from '../../types/asset';
 
@@ -513,7 +514,8 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
         if (categoryFilter === 'board' && rank !== 7) return false;
         if (categoryFilter === 'tv' && rank !== 8) return false;
         if (categoryFilter === 'camera' && rank !== 9) return false;
-        if (!['computer','monitor','laptop','tablet','printer','copier','board','tv','camera'].includes(categoryFilter) && a.category !== categoryFilter) {
+        if (categoryFilter === 'ip' && !a.credentials?.ipAddress) return false;
+        if (!['computer','monitor','laptop','tablet','printer','copier','board','tv','camera','ip'].includes(categoryFilter) && a.category !== categoryFilter) {
           return false;
         }
       }
@@ -539,6 +541,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
   const boardCount = assets.filter(a => getDeviceSortRank(a) === 7).length;
   const tvCount = assets.filter(a => getDeviceSortRank(a) === 8).length;
   const cameraCount = assets.filter(a => getDeviceSortRank(a) === 9).length;
+  const ipCount = assets.filter(a => !!a.credentials?.ipAddress).length;
 
   const getAssetsForRoom = (room: RoomConfig): Asset[] => {
     return filteredAssets.filter(asset => {
@@ -713,7 +716,7 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2.5 no-print">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-11 gap-2.5 no-print">
             {/* 전체 */}
             <button
               onClick={() => setCategoryFilter('all')}
@@ -891,6 +894,24 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               </div>
               <div className="p-1 rounded-lg bg-rose-500/10 text-rose-400">
                 <Camera className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* 10. IP */}
+            <button
+              onClick={() => setCategoryFilter('ip')}
+              className={`p-2.5 rounded-xl border transition-all text-left flex items-center justify-between ${
+                categoryFilter === 'ip'
+                  ? 'bg-cyan-600/20 border-cyan-500 text-white ring-2 ring-cyan-500/40 shadow-lg'
+                  : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <div>
+                <p className="text-[11px] font-medium">IP 할당기기</p>
+                <p className="text-xs font-bold text-cyan-300">{ipCount}대</p>
+              </div>
+              <div className="p-1 rounded-lg bg-cyan-500/10 text-cyan-400">
+                <Network className="w-3.5 h-3.5" />
               </div>
             </button>
           </div>
