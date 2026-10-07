@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { userEmail, isAuthenticated } = useAuth();
 
   return (
-    <header className="h-20 bg-slate-900/60 border-b border-slate-800 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 no-print">
+    <header className="h-14 bg-slate-900/60 border-b border-slate-800 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 no-print">
       {/* Left: Reorganized Items */}
       <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar">
         {/* Account Button */}
