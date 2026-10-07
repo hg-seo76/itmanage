@@ -626,9 +626,6 @@ export function BuildingMapView({ assets, privacyMode, onRegisterAssetForMember,
               </div>
               정보화 기기 배치도
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              실별 구성원을 자유롭게 추가/삭제하고, 담당자별 맞춤 기기를 즉시 등록 관리하세요.
-            </p>
           </div>
 
           {/* Floor Tabs & Reset Button */}
