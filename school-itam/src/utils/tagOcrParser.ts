@@ -462,6 +462,26 @@ export async function scanTagImage(
     throw new Error(data.error || 'Google Vision API 호출 실패');
   }
 
+  // 1순위: Gemini Vision AI가 직접 정밀 추출한 구조화 데이터가 있으면 즉시 반환
+  if (data.parsed) {
+    const p = data.parsed;
+    if (onProgress) onProgress(1.0, '✨ 최신 Vision AI 분석 완료!');
+    return {
+      assetId: p.assetId || '',
+      name: p.name || '',
+      category: p.category || 'desktop_pc',
+      manufacturer: p.manufacturer || '',
+      modelName: p.modelName || '',
+      acquisitionYear: Number(p.acquisitionYear) || new Date().getFullYear(),
+      acquisitionMonth: Number(p.acquisitionMonth) || 1,
+      location: p.location || '',
+      price: p.price ? String(p.price) : undefined,
+      classificationNo: p.classificationNo,
+      remarks: p.remarks || 'Vision AI 태그 자동 분석 등록',
+      rawText: JSON.stringify(p, null, 2),
+    };
+  }
+
   const text = data.text || '';
 
   if (onProgress) onProgress(0.9, '✅ 인식 데이터 필드 파싱 중...');
