@@ -26,6 +26,11 @@ export function normalizeM0000Code(str: string): string {
   let s = str.trim();
   // 접두사 오인식 (IVI, 1V1, IV, RN, N 등) 보정
   s = s.replace(/^(?:IVI|IV1|1VI|1V1|RN|rn|N|n)(?=[O0oDQ\s\d])/i, 'M');
+  // ★ M→1 오인식 교정: "1000004447" 같이 1+연속0(3개 이상)+숫자 패턴은 M 접두사로 복원
+  // 일반 숫자(취득단가, 분류번호)와 혼동 방지: 7~11자리이고 0이 3개 이상 연속인 경우만
+  if (/^1[0]{3,}\d+$/.test(s) && s.length >= 7 && s.length <= 11) {
+    s = 'M' + s.slice(1);
+  }
   if (/^[Mm]/i.test(s)) {
     let afterM = s.slice(1).replace(/[\s\-_.]/g, '').replace(/[OoDQ]/g, '0');
     // 학교 표준 10자리(M + 9자리 숫자) 자동 0 패딩 보정 (예: OCR이 0을 몇 개 빼먹은 경우 M004447 -> M000004447)
@@ -72,13 +77,16 @@ export function findAllM0000Candidates(text: string): string[] {
   }
 
   // 3) 분리형 태그: /숫자(7자리 이상)/교실 형태 탐색 (M이 완전히 누락되거나 N으로 분리된 경우도 복원, 5자리 이하 파편 제외)
+  // ★ 1000004447 같이 첫 자리가 1인 경우도 포함 (OCR이 M을 1로 오인식)
   const roomPrecedingTokens = Array.from(
-    text.matchAll(/[\/|\n\s](0{2,8}\d{2,6})\s*[\/|]\s*(?:[가-힣\d\s]+(?:교실|실|관|부서|센터))/gi)
+    text.matchAll(/[\/|\n\s]([10][0]{2,8}\d{2,6})\s*[\/|]\s*(?:[가-힣\d\s]+(?:교실|실|관|부서|센터))/gi)
   );
   for (const rm of roomPrecedingTokens) {
     const rawDigits = rm[1].replace(/\D/g, '');
     if (rawDigits.length >= 7) {
-      const normalized = normalizeM0000Code('M' + rawDigits);
+      // 1로 시작하고 뒤에 0이 3개 이상 연속되면 M 접두사로 교정 시도 (M→1 오인식)
+      const toNormalize = /^1[0]{3,}\d+$/.test(rawDigits) ? rawDigits : 'M' + rawDigits;
+      const normalized = normalizeM0000Code(toNormalize);
       if (/^M0{2,}\d+$/.test(normalized) && normalized.length >= 6) {
         if (!candidates.includes(normalized)) {
           candidates.push(normalized);
@@ -114,6 +122,10 @@ function correctOcrText(text: string): string {
     .replace(/(?:[Mm]|(?:IVI|1V1|IV))[\s\-_.]*[0OoDQ]{3,8}[\s\-_.]*\d{1,6}/gi, (m) => normalizeM0000Code(m))
     // 2. KKR- 슬래시/파이프 내부의 MO000... 형태 교정
     .replace(/([\/|]\s*)([Mm][O0oDQ\s\d-]{4,})(\s*[\/|])/gi, (_, p1, id, p2) => p1 + normalizeM0000Code(id) + p2)
+    // 3. ★ 슬래시/파이프 내부의 1000004447 형태 (M→1 오인식) 교정
+    .replace(/([\x2F|]\s*)(1[0]{3,}\d{4,})(\s*[\x2F|])/g, (_, p1, num, p2) => p1 + normalizeM0000Code(num) + p2)
+    // 4. 단독 1000004447 형태 교정 (앞뒤 콤마/숫자 없는 경우만)
+    .replace(/(?<![,\d])(1[0]{3,}\d{3,6})(?![,\d])/g, (_, num) => normalizeM0000Code(num))
     .replace(/[Oo](?=\d)/g, '0')
     .replace(/(?<=\d)[Oo]/g, '0')
     .replace(/\bO\b/g, '0')
